@@ -1,6 +1,19 @@
 # AgenticBlog — Vue d'ensemble
 
+## Documentation
+
+- Setup local et variables: `docs/setup.md`
+- Contrats des agents: `docs/agents.md`
+- Frontend (React/Vite/Tailwind): `docs/frontend.md`
+- Déploiement Docker: `docs/docker.md`
+
 Pipeline multi-agents qui lit des flux RSS tech, sélectionne l'article le plus pertinent, fetche son contenu complet, rédige un post validé par un critique, puis exporte 3 formats (blog Markdown, LinkedIn, YouTube Shorts). Tout le run est persisté en SQLite et peut être repris après une interruption.
+
+Le projet inclut aussi une interface web de pilotage:
+
+- Backend API FastAPI + SSE (`api.py`)
+- Frontend React/Vite/Tailwind (`frontend/`)
+- Orchestration Docker Compose (`docker-compose.yml`)
 
 ---
 

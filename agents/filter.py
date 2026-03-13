@@ -29,6 +29,7 @@ def filter_node(state: PipelineState) -> dict:
     scores: list[dict] = []
     tokens_used = 0
     try:
+        print(f"[FILTER]     Sending scoring request to LLM for {len(raw)} articles...")
         response = llm_client.chat.completions.create(
             model=LLM_MODEL,
             messages=[{"role": "user", "content": prompt}],

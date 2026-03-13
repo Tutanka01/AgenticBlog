@@ -3,6 +3,7 @@
 ## Prérequis
 
 - Python 3.12 (recommandé — voir ci-dessous)
+- Node.js 20+ (pour l'interface web)
 - Un compte OpenRouter (défaut) ou Ollama en local
 
 ---
@@ -37,6 +38,15 @@ python --version   # doit afficher 3.12.x
 
 ```bash
 pip install -r requirements.txt
+pip install -r requirements_ui.txt
+```
+
+### 4. Installer les dépendances frontend
+
+```bash
+cd frontend
+npm ci
+cd ..
 ```
 
 ---
@@ -56,6 +66,7 @@ cp .env.example .env
 | `LLM_MODEL` | `mistralai/mistral-7b-instruct` | Nom du modèle (format OpenRouter) |
 | `LLM_API_KEY` | *(vide)* | Clé API — **obligatoire** |
 | `LLM_TEMPERATURE` | `0.3` | Température (filter/critic). Writer monte à 0.7 en dur |
+| `LLM_TIMEOUT_SECONDS` | `90` | Timeout max par requête LLM (évite les blocages silencieux) |
 | `OPENROUTER_SITE_URL` | `https://github.com/AgenticBlog` | Header d'attribution OpenRouter |
 | `OPENROUTER_APP_NAME` | `AgenticBlog` | Header d'attribution OpenRouter |
 
@@ -102,6 +113,42 @@ python main.py --resume <run_id> --category security
 ```
 
 Au démarrage, si un run précédent existe, le pipeline propose automatiquement de le reprendre.
+
+---
+
+## Lancer l'interface web en local (mode dev)
+
+Ouvre 2 terminaux.
+
+### Terminal 1: API backend
+
+```bash
+source venv/bin/activate
+uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### Terminal 2: frontend
+
+```bash
+cd frontend
+npm run dev
+```
+
+Acces:
+
+- Frontend: `http://localhost:5173`
+- API: `http://localhost:8000`
+- Healthcheck: `http://localhost:8000/api/health`
+
+En mode dev, Vite proxy automatiquement `/api` vers `http://localhost:8000`.
+
+---
+
+## Deploiement conteneurise
+
+Pour lancer l'application complete via Docker Compose (backend + frontend), consulte `docs/docker.md`.
+
+Pour les details d'architecture frontend, consulte `docs/frontend.md`.
 
 ---
 

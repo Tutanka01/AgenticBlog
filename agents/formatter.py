@@ -64,6 +64,7 @@ def formatter_node(state: PipelineState) -> dict:
               .replace("{tags}", ", ".join(tags)))
 
     try:
+        print("[FORMATTER]  Generating title/description/social formats via LLM...")
         response = llm_client.chat.completions.create(
             model=LLM_MODEL,
             messages=[{"role": "user", "content": prompt}],

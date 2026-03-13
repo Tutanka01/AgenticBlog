@@ -30,6 +30,7 @@ def critic_node(state: PipelineState) -> dict:
     tokens_used = 0
 
     try:
+        print(f"[CRITIC]     Evaluating draft v{iteration}...")
         response = llm_client.chat.completions.create(
             model=LLM_MODEL,
             messages=[{"role": "user", "content": prompt}],

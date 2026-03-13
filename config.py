@@ -9,6 +9,7 @@ LLM_BASE_URL  = os.getenv("LLM_BASE_URL",  "https://openrouter.ai/api/v1")
 LLM_MODEL     = os.getenv("LLM_MODEL",     "google/gemini-3.1-flash-lite-preview")
 LLM_API_KEY   = os.getenv("LLM_API_KEY",   "")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
+LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "90"))
 
 # Headers OpenRouter (ignorés si autre backend)
 OPENROUTER_SITE_URL  = os.getenv("OPENROUTER_SITE_URL",  "https://github.com/Tutanka01/AgenticBlog")

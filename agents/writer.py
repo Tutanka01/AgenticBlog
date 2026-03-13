@@ -29,6 +29,7 @@ def writer_node(state: PipelineState) -> dict:
     draft = ""
     tokens_used = 0
     try:
+        print(f"[WRITER]     Generating draft v{iteration}...")
         response = llm_client.chat.completions.create(
             model=LLM_MODEL,
             messages=[
@@ -54,6 +55,7 @@ def writer_node(state: PipelineState) -> dict:
             f"Ajoute des exemples concrets, des commandes réelles, des cas d'usage."
         )
         try:
+            print(f"[WRITER]     Draft too short ({word_count} words), retrying...")
             response2 = llm_client.chat.completions.create(
                 model=LLM_MODEL,
                 messages=[
