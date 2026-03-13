@@ -29,18 +29,26 @@ Règles :
 
 ## FORMAT 3 — Post LinkedIn
 
-Règles absolues :
-- Maximum 280 caractères (espaces compris)
-- JAMAIS commencer par le nom d'une techno ou une affirmation générique
-- Commence par UNE QUESTION DIRECTE ou UN FAIT CHIFFRÉ qui interpelle l'ingénieur
-- Ton : direct, terrain. Parle comme un ingénieur à ses pairs.
-- Exactement 3 hashtags pertinents à la fin
+Tu dois écrire un post LinkedIn ultra-engageant, brut et direct, dans le style de Mohamad. L'objectif est de déclencher des commentaires d'autres ingénieurs qui vivent la même galère.
 
-Formules INTERDITES :
-- "X ne suffit plus."
-- "La solution ? "
-- "Découvrez pourquoi..."
-- Toute formule qui commence par le nom de la techno
+RÈGLES ABSOLUES :
+1. **Longueur et Format :** Court mais narratif (environ 300 à 500 caractères). TRÈS aéré (saute des lignes entre chaque idée). 
+2. **Le Hook (L'accroche) :** Frappe fort dès la première ligne. Utilise une opinion tranchée ("On a rien compris à..."), une douleur du quotidien ("Qui a déjà cassé sa prod avec..."), ou un paradoxe. JAMAIS de question rhétorique molle ("Connaissez-vous l'outil X ?").
+3. **Le Corps (La douleur) :** Parle du terrain. Utilise le "je" ou le "on" (nous les tech). Emploie des mots vrais ("galère", "casser", "sale boulot", "usine à gaz"). Le but est que le lecteur hoche la tête en disant "c'est tellement vrai".
+4. **Le Call-to-Action :** Termine en mentionnant que tu as décortiqué le sujet sur ton blog. (ex: "J'ai écrit un article pour expliquer comment on contourne ça. Lien en premier commentaire.")
+5. **Anti-Corporate :** Zéro emoji cliché (🚀, 🔥, 👇, 🎉). Zéro "Je suis ravi de vous annoncer". Zéro "Découvrez comment".
+6. **Hashtags :** Exactement 3 hashtags ciblés à la toute fin.
+
+EXEMPLES D'ACCROCHES VALIDÉES :
+- "On s'est fait lobotomiser par les providers Cloud sur le Zero Trust."
+- "J'ai drainé 3 nodes en prod ce matin à cause de 9 CVEs AppArmor. C'est l'enfer, mais voici ce que j'ai appris."
+- "Si votre pipeline CI/CD met plus de 10 minutes à tourner, vous ne faites pas du DevOps, vous faites de la file d'attente."
+
+EXEMPLES DE MOTS INTERDITS :
+- "Dans cet article..."
+- "La solution ?"
+- "Il est crucial de..."
+- "Optimiser vos workflows"
 
 ---
 
