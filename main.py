@@ -1,0 +1,106 @@
+"""
+Point d'entrée du pipeline de contenu.
+Usage : python main.py [--resume <run_id>]
+"""
+import time
+import uuid
+import argparse
+from datetime import date
+from pathlib import Path
+
+from graph import graph
+from config import CHECKPOINT_DB
+
+
+def list_recent_runs() -> list[str]:
+    """Return distinct thread_ids from the SQLite checkpoint DB."""
+    import sqlite3
+    db = Path(CHECKPOINT_DB)
+    if not db.exists():
+        return []
+    try:
+        con = sqlite3.connect(str(db))
+        cur = con.execute(
+            "SELECT DISTINCT thread_id FROM checkpoints ORDER BY thread_ts DESC LIMIT 5"
+        )
+        ids = [row[0] for row in cur.fetchall()]
+        con.close()
+        return ids
+    except Exception:
+        return []
+
+
+def run_pipeline(run_id: str | None = None) -> None:
+    """Execute or resume the pipeline."""
+    start = time.time()
+
+    if run_id is None:
+        run_id = str(uuid.uuid4())
+        print(f"\nStarting new run — id: {run_id}\n")
+    else:
+        print(f"\nResuming run — id: {run_id}\n")
+
+    run_date = date.today().isoformat()
+    Path("memory").mkdir(exist_ok=True)
+
+    initial_state = {
+        "messages": [],
+        "raw_articles": [],
+        "filtered_articles": [],
+        "selected_article": {},
+        "draft": "",
+        "critic_feedback": "",
+        "iteration_count": 0,
+        "critique_approved": False,
+        "blog_post": "",
+        "linkedin_post": "",
+        "youtube_script": "",
+        "run_id": run_id,
+        "run_date": run_date,
+        "total_tokens_used": 0,
+    }
+
+    config = {"configurable": {"thread_id": run_id}}
+
+    # stream_mode="values" gives the full state after each node
+    for step in graph.stream(initial_state, config=config, stream_mode="values"):
+        pass   # progress is printed inside each node
+
+    elapsed = round(time.time() - start, 1)
+    print(f"\nDone in {elapsed}s")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="AgenticBlog content pipeline")
+    parser.add_argument("--resume", metavar="RUN_ID", help="Resume a previous run by its ID")
+    parser.add_argument("--list", action="store_true", help="List recent run IDs")
+    args = parser.parse_args()
+
+    if args.list:
+        runs = list_recent_runs()
+        if runs:
+            print("Recent runs:")
+            for r in runs:
+                print(f"  {r}")
+        else:
+            print("No previous runs found.")
+        return
+
+    if args.resume:
+        run_pipeline(run_id=args.resume)
+        return
+
+    # Auto-detect last run and offer to resume
+    recent = list_recent_runs()
+    if recent:
+        last = recent[0]
+        answer = input(f"Last run found: {last}\nResume it? [y/N] ").strip().lower()
+        if answer == "y":
+            run_pipeline(run_id=last)
+            return
+
+    run_pipeline()
+
+
+if __name__ == "__main__":
+    main()
