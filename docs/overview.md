@@ -7,20 +7,20 @@ Pipeline multi-agents qui lit des flux RSS tech, sélectionne l'article le plus 
 ## Architecture du pipeline
 
 ```
-scraper_node
+scraper_node         ← feeds RSS selon la catégorie active
     ↓  raw_articles[] — {title, url, summary, source, published, fetched_at}
-filter_node          ← LLM : score chaque article 0-10
+filter_node          ← LLM : score chaque article 0-10 (topics de la catégorie)
     ↓  filtered_articles[] (score ≥ FILTER_THRESHOLD, top TOP_N_FILTERED)
 selector_node        ← score composite : LLM score + freshness bonus (0-1)
     ↓  selected_article{}
-fetcher_node         ← fetch HTML → extrait le texte principal (max 8000 chars)
-    ↓  selected_article{} + full_content
+fetcher_node         ← cascade : direct → Jina AI Reader → RSS summary fallback
+    ↓  selected_article{} + full_content + fetch_method
 writer_node  ←──────────────────────────────┐
     ↓  draft (v1, v2…)                       │ critic_feedback
 critic_node  ──(score < 7, iter < 3)────────┘
     ↓  (approve OR max_iter atteint)
-formatter_node       ← LLM : 3 formats depuis le draft validé
-    ↓  blog_post, linkedin_post, youtube_script
+formatter_node       ← blog = YAML front matter + draft (pas de LLM)
+    ↓                  linkedin + youtube = LLM via prompts/formatter_social.md
 output_saver_node    ← écrit output/{date}/ + checkpoints SQLite
     ↓
 END
@@ -30,40 +30,58 @@ La boucle writer ↔ critic est bornée à `MAX_CRITIQUE_ITERATIONS` (défaut : 
 
 ---
 
+## Catégories
+
+Le pipeline supporte plusieurs catégories de veille, chacune avec ses propres feeds RSS et topics de filtrage :
+
+| Catégorie | Label | Feeds |
+|-----------|-------|-------|
+| `infra` (défaut) | Infrastructure & DevOps | HN, Reddit K8s/DevOps/Selfhosted, LWN |
+| `security` | Cybersécurité | The Hacker News, BleepingComputer, LWN, Exploit-DB |
+| `ai` | Intelligence Artificielle | HN, Reddit ML/LocalLLaMA/Artificial |
+| `cloud` | Cloud | HN, AWS Blog, Reddit AWS/GCP/Azure |
+| `africa` | Tech Afrique & Maroc | HN, Reddit Africa/Morocco |
+
+La catégorie active est transmise dans `state["active_category"]` et lue par `scraper` et `filter`.
+
+---
+
 ## Structure des fichiers
 
 ```
 .
-├── main.py              # Point d'entrée (CLI : --resume, --list)
+├── main.py              # Point d'entrée (CLI : --resume, --list, --category)
 ├── graph.py             # StateGraph LangGraph + checkpointer SQLite
 ├── state.py             # PipelineState (TypedDict) + ACPMessage (Pydantic)
-├── config.py            # Config centralisée, lue depuis .env
+├── config.py            # Config centralisée : CATEGORIES, DEFAULT_CATEGORY, .env
 ├── llm.py               # Client OpenAI partagé (headers OpenRouter injectés auto)
 ├── .env                 # Variables d'environnement (non commité)
 ├── .env.example         # Template à copier
 ├── requirements.txt
 ├── agents/
-│   ├── scraper.py       # Fetch RSS → raw_articles
-│   ├── filter.py        # Score LLM → filtered_articles
+│   ├── scraper.py       # Fetch RSS → raw_articles (feeds selon catégorie)
+│   ├── filter.py        # Score LLM → filtered_articles (topics selon catégorie)
 │   ├── selector.py      # Score composite → selected_article
-│   ├── fetcher.py       # Fetch HTML → selected_article.full_content
+│   ├── fetcher.py       # Cascade fetch : direct → Jina → RSS fallback
 │   ├── writer.py        # Rédige / révise → draft (avec retry longueur)
 │   ├── critic.py        # Évalue → feedback + approve/reject
-│   ├── formatter.py     # 3 formats → blog/linkedin/youtube
+│   ├── formatter.py     # blog (YAML+draft) + linkedin/youtube (LLM)
 │   └── output_saver.py  # Persiste + résumé console
 ├── prompts/             # Prompts Markdown avec variables {placeholder}
 │   ├── filter.md
 │   ├── writer.md
 │   ├── critic.md
-│   └── formatter.md
+│   ├── formatter.md        # (conservé, non utilisé — remplacé par formatter_social.md)
+│   └── formatter_social.md # LinkedIn + YouTube uniquement
 ├── memory/
 │   └── checkpoints.sqlite  # Géré automatiquement par LangGraph
 └── output/
     └── {run_date}/
-        ├── blog_post.md
-        ├── linkedin_post.md
-        ├── youtube_script.md
-        └── run_metadata.json
+        └── {run_id[:8]}/       # un sous-dossier par run — jamais d'écrasement
+            ├── blog_post.md
+            ├── linkedin_post.md
+            ├── youtube_script.md
+            └── run_metadata.json
 ```
 
 ---
@@ -73,6 +91,12 @@ La boucle writer ↔ critic est bornée à `MAX_CRITIQUE_ITERATIONS` (défaut : 
 Toutes les données transitent via `PipelineState` (défini dans `state.py`). Chaque agent reçoit le state complet en lecture et retourne **uniquement les clés qu'il modifie**.
 
 Les messages inter-agents (`ACPMessage`) sont accumulés dans `state["messages"]` via `operator.add` comme reducer — ils ne sont jamais écrasés, seulement ajoutés. (`add_messages` de LangGraph n'est pas utilisé car il attend des objets LangChain avec un champ `.id`, incompatible avec les Pydantic models purs.)
+
+Champs clés ajoutés récemment :
+
+| Clé | Type | Rôle |
+|-----|------|------|
+| `active_category` | `str` | Catégorie du run (`"infra"`, `"security"`, `"ai"`, etc.) |
 
 ---
 

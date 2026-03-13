@@ -42,6 +42,68 @@ _default_topics = (
 )
 INTEREST_TOPICS = [t.strip() for t in os.getenv("INTEREST_TOPICS", _default_topics).split(",") if t.strip()]
 
+# ── Catégories disponibles ────────────────────────────────────────────────────
+CATEGORIES = {
+    "security": {
+        "feeds": [
+            "https://feeds.feedburner.com/TheHackersNews",
+            "https://www.bleepingcomputer.com/feed/",
+            "https://lwn.net/headlines/rss",
+            "https://www.exploit-db.com/rss.xml",
+        ],
+        "topics": ["CVE", "vulnerability", "exploit", "cybersecurity", "pentest",
+                   "kernel", "AppArmor", "seccomp", "zero-day", "ransomware", "OWASP"],
+        "label": "Cybersécurité",
+    },
+    "infra": {
+        "feeds": [
+            "https://hnrss.org/frontpage",
+            "https://www.reddit.com/r/kubernetes/.rss",
+            "https://www.reddit.com/r/devops/.rss",
+            "https://lwn.net/headlines/rss",
+            "https://www.reddit.com/r/selfhosted/.rss",
+        ],
+        "topics": ["kubernetes", "docker", "linux", "devops", "CI/CD", "GitOps",
+                   "terraform", "ansible", "proxmox", "homelab", "cloud", "infrastructure"],
+        "label": "Infrastructure & DevOps",
+    },
+    "ai": {
+        "feeds": [
+            "https://hnrss.org/frontpage",
+            "https://www.reddit.com/r/MachineLearning/.rss",
+            "https://www.reddit.com/r/LocalLLaMA/.rss",
+            "https://www.reddit.com/r/artificial/.rss",
+        ],
+        "topics": ["LLM", "AI agents", "RAG", "fine-tuning", "inference", "ollama",
+                   "llama.cpp", "multi-agent", "embeddings", "open-source AI", "local AI"],
+        "label": "Intelligence Artificielle",
+    },
+    "cloud": {
+        "feeds": [
+            "https://hnrss.org/frontpage",
+            "https://aws.amazon.com/blogs/aws/feed/",
+            "https://www.reddit.com/r/aws/.rss",
+            "https://www.reddit.com/r/googlecloud/.rss",
+            "https://www.reddit.com/r/AZURE/.rss",
+        ],
+        "topics": ["AWS", "GCP", "Azure", "serverless", "cloud-native", "FinOps",
+                   "kubernetes", "managed services", "cloud cost", "multi-cloud"],
+        "label": "Cloud",
+    },
+    "africa": {
+        "feeds": [
+            "https://hnrss.org/frontpage",
+            "https://www.reddit.com/r/africa/.rss",
+            "https://www.reddit.com/r/Morocco/.rss",
+        ],
+        "topics": ["Maroc", "Morocco", "Afrique", "Africa", "tech africa", "startup Maroc",
+                   "numérique", "digital transformation", "fintech Afrique"],
+        "label": "Tech Afrique & Maroc",
+    },
+}
+
+DEFAULT_CATEGORY = "infra"
+
 # ── Style rédactionnel (pas en .env — trop long, pas secret) ─────────────────
 WRITING_STYLE = """
 Tu es Mohamad, ingénieur DevOps/Cloud senior.

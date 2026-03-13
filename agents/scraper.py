@@ -3,15 +3,20 @@ import feedparser
 from datetime import datetime, timezone
 
 from state import PipelineState, ACPMessage
-from config import RSS_FEEDS, MAX_ARTICLES_TO_FETCH
+from config import MAX_ARTICLES_TO_FETCH, CATEGORIES, DEFAULT_CATEGORY
 
 
 def scraper_node(state: PipelineState) -> dict:
     """Fetch RSS feeds → raw_articles list."""
     start = time.time()
+
+    category = state.get("active_category", DEFAULT_CATEGORY)
+    cat_config = CATEGORIES.get(category, CATEGORIES[DEFAULT_CATEGORY])
+    feeds_to_use = cat_config["feeds"]
+
     articles = []
 
-    for feed_url in RSS_FEEDS:
+    for feed_url in feeds_to_use:
         if len(articles) >= MAX_ARTICLES_TO_FETCH:
             break
         try:
@@ -32,7 +37,7 @@ def scraper_node(state: PipelineState) -> dict:
             print(f"[SCRAPER] Feed error ({feed_url}): {exc}")
 
     elapsed = round(time.time() - start, 1)
-    print(f"[SCRAPER]    Fetched {len(articles)} articles ({len(RSS_FEEDS)} feeds, {elapsed}s)")
+    print(f"[SCRAPER]    Fetched {len(articles)} articles ({len(feeds_to_use)} feeds, {elapsed}s)")
 
     msg = ACPMessage(
         sender="scraper",

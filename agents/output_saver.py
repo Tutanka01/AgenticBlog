@@ -12,7 +12,8 @@ def output_saver_node(state: PipelineState) -> dict:
     run_id = state.get("run_id", "unknown")
     article = state.get("selected_article", {})
 
-    out_dir = OUTPUT_DIR / run_date
+    run_slug = run_id[:8] if run_id != "unknown" else "unknown"
+    out_dir = OUTPUT_DIR / run_date / run_slug
     out_dir.mkdir(parents=True, exist_ok=True)
 
     try:

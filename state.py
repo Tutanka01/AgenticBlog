@@ -41,3 +41,4 @@ class PipelineState(TypedDict):
     run_id: str
     run_date: str
     total_tokens_used: int
+    active_category: str   # catégorie active du run ("security", "infra", "ai", etc.)

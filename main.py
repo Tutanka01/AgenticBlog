@@ -1,6 +1,6 @@
 """
 Point d'entrée du pipeline de contenu.
-Usage : python main.py [--resume <run_id>]
+Usage : python main.py [--resume <run_id>] [--list] [--category <cat>]
 """
 import time
 import uuid
@@ -9,7 +9,7 @@ from datetime import date
 from pathlib import Path
 
 from graph import graph
-from config import CHECKPOINT_DB
+from config import CHECKPOINT_DB, CATEGORIES, DEFAULT_CATEGORY
 
 
 def list_recent_runs() -> list[str]:
@@ -30,7 +30,7 @@ def list_recent_runs() -> list[str]:
         return []
 
 
-def run_pipeline(run_id: str | None = None) -> None:
+def run_pipeline(run_id: str | None = None, category: str = DEFAULT_CATEGORY) -> None:
     """Execute or resume the pipeline."""
     start = time.time()
 
@@ -39,6 +39,9 @@ def run_pipeline(run_id: str | None = None) -> None:
         print(f"\nStarting new run — id: {run_id}\n")
     else:
         print(f"\nResuming run — id: {run_id}\n")
+
+    cat_config = CATEGORIES.get(category, CATEGORIES[DEFAULT_CATEGORY])
+    print(f"Category: [{cat_config['label']}]\n")
 
     run_date = date.today().isoformat()
     Path("memory").mkdir(exist_ok=True)
@@ -58,6 +61,7 @@ def run_pipeline(run_id: str | None = None) -> None:
         "run_id": run_id,
         "run_date": run_date,
         "total_tokens_used": 0,
+        "active_category": category,
     }
 
     config = {"configurable": {"thread_id": run_id}}
@@ -74,6 +78,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="AgenticBlog content pipeline")
     parser.add_argument("--resume", metavar="RUN_ID", help="Resume a previous run by its ID")
     parser.add_argument("--list", action="store_true", help="List recent run IDs")
+    parser.add_argument(
+        "--category", "-c",
+        choices=list(CATEGORIES.keys()),
+        default=DEFAULT_CATEGORY,
+        help=f"Content category (default: {DEFAULT_CATEGORY}). Choices: {', '.join(CATEGORIES.keys())}"
+    )
     args = parser.parse_args()
 
     if args.list:
@@ -87,7 +97,7 @@ def main() -> None:
         return
 
     if args.resume:
-        run_pipeline(run_id=args.resume)
+        run_pipeline(run_id=args.resume, category=args.category)
         return
 
     # Auto-detect last run and offer to resume
@@ -96,10 +106,10 @@ def main() -> None:
         last = recent[0]
         answer = input(f"Last run found: {last}\nResume it? [y/N] ").strip().lower()
         if answer == "y":
-            run_pipeline(run_id=last)
+            run_pipeline(run_id=last, category=args.category)
             return
 
-    run_pipeline()
+    run_pipeline(category=args.category)
 
 
 if __name__ == "__main__":

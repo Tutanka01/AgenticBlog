@@ -2,7 +2,7 @@ import json
 import re
 
 from state import PipelineState, ACPMessage
-from config import LLM_MODEL, LLM_TEMPERATURE, INTEREST_TOPICS, FILTER_THRESHOLD, TOP_N_FILTERED, PROMPTS_DIR
+from config import LLM_MODEL, LLM_TEMPERATURE, FILTER_THRESHOLD, TOP_N_FILTERED, PROMPTS_DIR, CATEGORIES, DEFAULT_CATEGORY
 from llm import llm_client
 
 
@@ -16,9 +16,14 @@ def _build_articles_text(articles: list[dict]) -> str:
 def filter_node(state: PipelineState) -> dict:
     """Score raw_articles via LLM → filtered_articles (score >= FILTER_THRESHOLD, top TOP_N_FILTERED)."""
     raw = state["raw_articles"]
+
+    category = state.get("active_category", DEFAULT_CATEGORY)
+    cat_config = CATEGORIES.get(category, CATEGORIES[DEFAULT_CATEGORY])
+    topics = cat_config["topics"]
+
     prompt_template = (PROMPTS_DIR / "filter.md").read_text()
     prompt = (prompt_template
-              .replace("{topics}", ", ".join(INTEREST_TOPICS))
+              .replace("{topics}", ", ".join(topics))
               .replace("{articles}", _build_articles_text(raw)))
 
     scores: list[dict] = []

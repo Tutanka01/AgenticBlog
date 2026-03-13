@@ -7,10 +7,10 @@ Chaque agent est une fonction pure `(state: PipelineState) -> dict`. Il reçoit 
 ## scraper
 
 **Fichier :** `agents/scraper.py`
-**Lit :** `config.RSS_FEEDS`, `config.MAX_ARTICLES_TO_FETCH`
+**Lit :** `state["active_category"]`, `config.CATEGORIES`, `config.MAX_ARTICLES_TO_FETCH`
 **Écrit :** `raw_articles`, `messages`
 
-Parse chaque feed RSS avec `feedparser`. En cas d'erreur sur un feed, il log et continue (les autres feeds ne sont pas bloqués). Retourne une liste de dicts :
+Parse chaque feed RSS avec `feedparser`. Les feeds utilisés dépendent de la catégorie active (`CATEGORIES[active_category]["feeds"]`). En cas d'erreur sur un feed, il log et continue (les autres feeds ne sont pas bloqués). Retourne une liste de dicts :
 
 ```
 {title, url, summary, source, published, fetched_at}
@@ -23,10 +23,10 @@ Parse chaque feed RSS avec `feedparser`. En cas d'erreur sur un feed, il log et 
 ## filter
 
 **Fichier :** `agents/filter.py`
-**Lit :** `raw_articles`, `config.INTEREST_TOPICS`, `prompts/filter.md`
+**Lit :** `raw_articles`, `state["active_category"]`, `config.CATEGORIES`, `prompts/filter.md`
 **Écrit :** `filtered_articles`, `total_tokens_used`, `messages`
 
-Envoie tous les articles au LLM en une seule requête avec le prompt `filter.md`. Le LLM retourne un JSON array `[{url, score, reason}]`. Les articles avec `score >= FILTER_THRESHOLD` sont gardés, triés par score décroissant, limités à `TOP_N_FILTERED`.
+Envoie tous les articles au LLM en une seule requête avec le prompt `filter.md`. Les topics utilisés sont ceux de la catégorie active (`CATEGORIES[active_category]["topics"]`), pas la liste globale `INTEREST_TOPICS`. Le LLM retourne un JSON array `[{url, score, reason}]`. Les articles avec `score >= FILTER_THRESHOLD` sont gardés, triés par score décroissant, limités à `TOP_N_FILTERED`.
 
 **Fallback :** si le LLM échoue ou retourne du JSON invalide, tous les articles reçoivent un score de 5 (passent le filtre, mais aucun n'est mis en avant).
 
@@ -54,13 +54,17 @@ Le bonus de fraîcheur décroit linéairement de 1.0 (article publié maintenant
 
 **Fichier :** `agents/fetcher.py`
 **Lit :** `selected_article`
-**Écrit :** `selected_article` (enrichi avec `full_content`), `messages`
+**Écrit :** `selected_article` (enrichi avec `full_content` + `fetch_method`), `messages`
 
-Fetch le HTML de l'URL de l'article sélectionné via `httpx`, puis extrait le texte principal avec `BeautifulSoup`. Les balises parasites (`script`, `style`, `nav`, `footer`, `aside`, `header`, `form`) sont supprimées avant extraction. Le texte est tronqué à 8000 caractères pour rester dans le contexte d'un LLM 7B.
+Fetch le contenu de l'article via une **cascade de 3 stratégies**, dans cet ordre :
 
-La priorité d'extraction est : `<article>` → `<main>` → `<body>`.
+1. **Direct** — `httpx` avec headers navigateur réalistes (Chrome/macOS). Si le contenu extrait fait moins de 300 caractères après nettoyage, considéré comme bloqué.
+2. **Jina AI Reader** (`r.jina.ai/{url}`) — proxy public gratuit qui contourne la plupart des blocages et paywalls légers. Retourne du texte brut.
+3. **RSS summary** — dernier recours, utilise le `summary` déjà présent dans l'article.
 
-**Fallback :** si le fetch échoue (timeout, 403, etc.), `full_content` prend la valeur du `summary` RSS. Le pipeline n'est jamais bloqué par un article inaccessible.
+Le champ `fetch_method` enregistre la stratégie utilisée (`"direct"`, `"jina"`, `"rss_fallback"`). L'extraction HTML supprime les balises parasites (`script`, `style`, `nav`, `footer`, `aside`, `header`, `form`, `iframe`) avant d'extraire `<article>` → `<main>` → `<body>`. Texte tronqué à 8000 caractères.
+
+**Le pipeline n'est jamais bloqué** — même si les deux premières stratégies échouent, le summary RSS est suffisant pour que writer produise un article.
 
 ---
 
@@ -99,14 +103,20 @@ Le conditional edge dans `graph.py` reboucle sur `writer` si `approved == false`
 ## formatter
 
 **Fichier :** `agents/formatter.py`
-**Lit :** `draft`, `selected_article`, `run_date`, `prompts/formatter.md`
+**Lit :** `draft`, `selected_article`, `run_date`, `prompts/formatter_social.md`
 **Écrit :** `blog_post`, `linkedin_post`, `youtube_script`, `total_tokens_used`, `messages`
 
-Génère les 3 formats en une seule requête LLM. Le prompt demande au modèle de séparer les sections avec des marqueurs `===BLOG===`, `===LINKEDIN===`, `===YOUTUBE===`. L'agent extrait ensuite chaque section avec une regex.
+Génère les 3 formats avec deux chemins distincts :
 
-Le post LinkedIn suit des contraintes strictes définies dans `prompts/formatter.md` : accroche par question directe ou fait chiffré, formules génériques interdites, exactement 3 hashtags, max 280 caractères.
+**Blog post — sans LLM :**
+Le draft validé n'est pas réécrit. `formatter` construit uniquement le front matter YAML (`title`, `date`, `tags`, `description`, `author`) et le préfixe au draft. La description est extraite des 25 premiers mots du draft. Cela garantit que le blog post conserve exactement les 900–1200 mots validés par le critic.
 
-**Fallback :** si les marqueurs sont absents, `blog_post = draft`.
+**LinkedIn + YouTube — via LLM :**
+Un seul appel LLM avec `prompts/formatter_social.md`. Le prompt demande au modèle de séparer les sections avec des marqueurs `===LINKEDIN===` et `===YOUTUBE===`. L'agent extrait chaque section avec une regex.
+
+Le post LinkedIn suit des contraintes strictes définies dans `formatter_social.md` : accroche par question directe ou fait chiffré, formules génériques interdites, exactement 3 hashtags, max 280 caractères. Le script YouTube respecte une structure en 4 temps avec timecodes (0s hook → 5s problème → 15s solution → 50s CTA).
+
+**Tags :** extraits des mots de `article["title"]` intersectés avec `INTEREST_TOPICS` (5 max). Fallback sur les 3 premiers topics de la liste globale.
 
 ---
 
@@ -116,7 +126,7 @@ Le post LinkedIn suit des contraintes strictes définies dans `prompts/formatter
 **Lit :** `blog_post`, `linkedin_post`, `youtube_script`, `run_id`, `run_date`, `filtered_articles`, `selected_article`, `iteration_count`, `total_tokens_used`
 **Écrit :** `messages`
 
-Crée `output/{run_date}/` et écrit les 4 fichiers. Le `run_metadata.json` contient toutes les méta du run pour permettre une analyse post-run sans relire les fichiers markdown.
+Crée `output/{run_date}/{run_id[:8]}/` et écrit les 4 fichiers. Plusieurs runs le même jour coexistent sans jamais s'écraser. Le `run_metadata.json` contient toutes les méta du run pour permettre une analyse post-run sans relire les fichiers markdown.
 
 ---
 

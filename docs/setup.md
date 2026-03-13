@@ -69,28 +69,53 @@ Les deux headers `OPENROUTER_SITE_URL` / `OPENROUTER_APP_NAME` sont injectés au
 | `MAX_ARTICLES_TO_FETCH` | `40` | Limite totale d'articles scrappés |
 | `TOP_N_FILTERED` | `5` | Articles transmis au selector après filtrage |
 | `MAX_CRITIQUE_ITERATIONS` | `3` | Nombre max de boucles writer ↔ critic |
-| `RSS_FEEDS` | 5 feeds par défaut | URLs séparées par des virgules |
-| `INTEREST_TOPICS` | Liste DevOps/Cloud/Maghreb | Topics séparés par des virgules |
 | `CHECKPOINT_DB` | `memory/checkpoints.sqlite` | Base SQLite LangGraph |
 | `OUTPUT_DIR` | `./output` | Dossier de sortie |
 | `PROMPTS_DIR` | `./prompts` | Dossier des prompts Markdown |
+
+> **Note :** `RSS_FEEDS` et `INTEREST_TOPICS` ne sont plus les variables principales. Les feeds et topics sont maintenant définis par catégorie dans `config.CATEGORIES`. Ces variables `.env` sont conservées pour compatibilité mais ne sont plus utilisées par `scraper` et `filter`.
 
 ---
 
 ## Lancer le pipeline
 
 ```bash
-# Run complet
+# Run complet — catégorie par défaut (infra)
 python main.py
+
+# Choisir une catégorie
+python main.py --category infra      # Infrastructure & DevOps (défaut)
+python main.py --category security   # veille cybersécurité
+python main.py --category ai         # veille IA / LLM
+python main.py --category cloud      # veille Cloud
+python main.py --category africa     # tech Maroc / Afrique
+
+# Forme courte (-c est un alias de --category)
+python main.py -c security
 
 # Lister les runs précédents
 python main.py --list
 
 # Reprendre un run interrompu
 python main.py --resume <run_id>
+python main.py --resume <run_id> --category security
 ```
 
 Au démarrage, si un run précédent existe, le pipeline propose automatiquement de le reprendre.
+
+---
+
+## Catégories disponibles
+
+Les catégories sont définies dans `config.CATEGORIES`. Chacune embarque ses propres feeds RSS et topics de filtrage — aucune variable `.env` à toucher pour changer de domaine.
+
+| Option CLI | Label | Topics clés |
+|------------|-------|-------------|
+| `infra` | Infrastructure & DevOps | kubernetes, docker, linux, devops, CI/CD, GitOps, terraform… |
+| `security` | Cybersécurité | CVE, vulnerability, exploit, zero-day, ransomware, OWASP… |
+| `ai` | Intelligence Artificielle | LLM, AI agents, RAG, fine-tuning, ollama, llama.cpp… |
+| `cloud` | Cloud | AWS, GCP, Azure, serverless, FinOps, cloud-native… |
+| `africa` | Tech Afrique & Maroc | Maroc, Morocco, Afrique, fintech Afrique, startup Maroc… |
 
 ---
 
@@ -136,12 +161,19 @@ Les headers OpenRouter ne sont pas envoyés si l'URL ne contient pas `openrouter
 
 ## Structure des outputs
 
-Après chaque run, `output/{run_date}/` contient :
+Après chaque run, `output/{run_date}/{run_id[:8]}/` contient :
 
 ```
-output/2026-03-13/
-├── blog_post.md        ← Article complet avec front matter YAML
-├── linkedin_post.md    ← Post ≤ 280 caractères + 3 hashtags
-├── youtube_script.md   ← Script 60–90s avec timecodes
-└── run_metadata.json   ← run_id, article sélectionné, scores, nb itérations, tokens
+output/
+└── 2026-03-13/
+    ├── a1b2c3d4/               ← run du matin
+    │   ├── blog_post.md        ← YAML front matter + draft validé (inchangé)
+    │   ├── linkedin_post.md    ← Post ≤ 280 caractères + 3 hashtags
+    │   ├── youtube_script.md   ← Script 60–90s avec timecodes
+    │   └── run_metadata.json   ← run_id, article, scores, itérations, tokens
+    └── e5f6a7b8/               ← run de l'après-midi (jamais écrasé)
+        ├── blog_post.md
+        └── ...
 ```
+
+Plusieurs runs le même jour coexistent sans jamais s'écraser.
