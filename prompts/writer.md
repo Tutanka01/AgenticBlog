@@ -45,3 +45,6 @@ Si aucun feedback n'est présent, rédige le brouillon complet à partir de l'ar
 
 ## Début de ta réponse
 Commence directement par l'article, sans préambule. Pas de "Bien sûr, voici..." ni d'introduction méta.
+
+## INTERDIT ABSOLU
+N'écris JAMAIS les noms de sections dans l'article : **Accroche**, **Contexte**, **Explication technique**, **Exemple pratique**, **Conclusion** — ces labels sont des instructions pour toi, ils ne doivent pas apparaître dans le texte final. L'article doit couler naturellement d'un bloc à l'autre, sans étiquettes visibles.

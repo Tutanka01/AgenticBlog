@@ -45,59 +45,66 @@ INTEREST_TOPICS = [t.strip() for t in os.getenv("INTEREST_TOPICS", _default_topi
 # ── Catégories disponibles ────────────────────────────────────────────────────
 CATEGORIES = {
     "security": {
-        "feeds": [
-            "https://feeds.feedburner.com/TheHackersNews",
-            "https://www.bleepingcomputer.com/feed/",
-            "https://lwn.net/headlines/rss",
-            "https://www.exploit-db.com/rss.xml",
+        "feeds":[
+            "https://googleprojectzero.blogspot.com/feeds/posts/default", # Project Zero (Deep dive vulnérabilités)
+            "https://blog.cloudflare.com/tag/security/rss/",              # Retours terrain Cloudflare
+            "https://portswigger.net/research/rss",                       # Web Security / OWASP
+            "https://lwn.net/headlines/rss",                              # Incontournable pour le Kernel Linux
+            "https://www.reddit.com/r/netsec/.rss",                       # LE meilleur subreddit sécurité (très technique)
+            "https://feeds.feedburner.com/TheHackersNews",                # Pour l'actu chaude (CVEs)
         ],
-        "topics": ["CVE", "vulnerability", "exploit", "cybersecurity", "pentest",
-                   "kernel", "AppArmor", "seccomp", "zero-day", "ransomware", "OWASP"],
+        "topics":["CVE", "vulnerability", "exploit", "cybersecurity", "pentest",
+                   "kernel", "AppArmor", "seccomp", "zero-day", "ransomware", "OWASP", "eBPF", "CORS"],
         "label": "Cybersécurité",
     },
     "infra": {
-        "feeds": [
-            "https://hnrss.org/frontpage",
-            "https://www.reddit.com/r/kubernetes/.rss",
-            "https://www.reddit.com/r/devops/.rss",
-            "https://lwn.net/headlines/rss",
-            "https://www.reddit.com/r/selfhosted/.rss",
+        "feeds":[
+            "https://kubernetes.io/feed.xml",                             # Officiel K8s (Releases, deprecations)
+            "https://blog.bytebytego.com/feed",                           # Architecture et System Design
+            "https://netflixtechblog.com/feed",                           # Infra à très grande échelle
+            "https://www.reddit.com/r/kubernetes/.rss",                   # Pour les vrais problèmes de prod K8s
+            "https://www.reddit.com/r/selfhosted/.rss",                   # Pépite absolue pour découvrir des outils Open Source
+            "https://www.reddit.com/r/devops/.rss",                       # Débats d'architecture et CI/CD
         ],
-        "topics": ["kubernetes", "docker", "linux", "devops", "CI/CD", "GitOps",
-                   "terraform", "ansible", "proxmox", "homelab", "cloud", "infrastructure"],
+        "topics":["kubernetes", "docker", "linux", "devops", "CI/CD", "GitOps",
+                   "terraform", "ansible", "proxmox", "homelab", "infrastructure", "system design", "eBPF", "cilium"],
         "label": "Infrastructure & DevOps",
     },
     "ai": {
-        "feeds": [
-            "https://hnrss.org/frontpage",
-            "https://www.reddit.com/r/MachineLearning/.rss",
-            "https://www.reddit.com/r/LocalLLaMA/.rss",
-            "https://www.reddit.com/r/artificial/.rss",
+        "feeds":[
+            "https://huggingface.co/blog/feed.xml",                       # L'écosystème Open Source IA
+            "https://blog.langchain.dev/rss/",                            # Pratique pour l'Agentic RAG
+            "https://bair.berkeley.edu/blog/feed.xml",                    # Recherche très pointue
+            "https://www.reddit.com/r/LocalLLaMA/.rss",                   # LE hub de l'IA locale (Ollama, vLLM, GGUF)
+            "https://www.reddit.com/r/MachineLearning/.rss",              # Papiers et débats techniques
+            "https://hnrss.org/frontpage",                                # HackerNews reste excellent pour les grosses annonces IA
         ],
-        "topics": ["LLM", "AI agents", "RAG", "fine-tuning", "inference", "ollama",
-                   "llama.cpp", "multi-agent", "embeddings", "open-source AI", "local AI"],
+        "topics":["LLM", "AI agents", "RAG", "fine-tuning", "inference", "ollama",
+                   "llama.cpp", "multi-agent", "embeddings", "open-source AI", "local AI", "vLLM", "quantization"],
         "label": "Intelligence Artificielle",
     },
     "cloud": {
-        "feeds": [
-            "https://hnrss.org/frontpage",
-            "https://aws.amazon.com/blogs/aws/feed/",
-            "https://www.reddit.com/r/aws/.rss",
-            "https://www.reddit.com/r/googlecloud/.rss",
-            "https://www.reddit.com/r/AZURE/.rss",
+        "feeds":[
+            "https://lastweekinaws.com/feed/",                            # Corey Quinn (parfait pour le ton sarcastique/critique)
+            "https://blog.cloudflare.com/rss/",                           # Cloudflare annonce souvent des outils anti-AWS
+            "https://aws.amazon.com/blogs/architecture/feed/",            # Plus technique que le blog AWS principal
+            "https://www.reddit.com/r/aws/.rss",                          # Cas d'usages et galères de facturation
+            "https://www.reddit.com/r/sre/.rss",                          # Site Reliability Engineering (très cloud-native)
         ],
-        "topics": ["AWS", "GCP", "Azure", "serverless", "cloud-native", "FinOps",
-                   "kubernetes", "managed services", "cloud cost", "multi-cloud"],
+        "topics":["AWS", "GCP", "Azure", "serverless", "cloud-native", "FinOps",
+                   "kubernetes", "managed services", "cloud cost", "multi-cloud", "egress", "S3"],
         "label": "Cloud",
     },
     "africa": {
-        "feeds": [
-            "https://hnrss.org/frontpage",
-            "https://www.reddit.com/r/africa/.rss",
-            "https://www.reddit.com/r/Morocco/.rss",
+        "feeds":[
+            "https://techcabal.com/feed/",                                # Le média Tech de référence en Afrique
+            "https://disrupt-africa.com/feed/",                           # Ecosystème Startup & Levées de fonds
+            "https://weatracker.com/feed/",                               # WeeTracker (Data & Tech)
+            "https://www.reddit.com/r/Morocco/.rss",                      # On garde pour le contexte local
+            "https://hnrss.org/frontpage",                                # Fallback généraliste
         ],
-        "topics": ["Maroc", "Morocco", "Afrique", "Africa", "tech africa", "startup Maroc",
-                   "numérique", "digital transformation", "fintech Afrique"],
+        "topics":["Maroc", "Morocco", "Afrique", "Africa", "tech africa", "startup Maroc",
+                   "numérique", "fintech Afrique", "mobile money", "M-Pesa", "datacenter afrique", "UM6P"],
         "label": "Tech Afrique & Maroc",
     },
 }
