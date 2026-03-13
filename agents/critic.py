@@ -13,8 +13,15 @@ def critic_node(state: PipelineState) -> dict:
     draft = state["draft"]
     iteration = state.get("iteration_count", 1)
 
+    article = state.get("selected_article", {})
+    source_url = article.get("url", "source inconnue")
+    source_name = article.get("source", "source inconnue")
+
     prompt_template = (PROMPTS_DIR / "critic.md").read_text()
-    prompt = prompt_template.replace("{draft}", draft)
+    prompt = (prompt_template
+              .replace("{draft}", draft)
+              .replace("{source_url}", source_url)
+              .replace("{source_name}", source_name))
 
     approved = False
     feedback = ""

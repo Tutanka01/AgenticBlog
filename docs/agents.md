@@ -87,7 +87,7 @@ Utilise `temperature=0.7` (plus créatif que les autres agents qui utilisent `LL
 ## critic
 
 **Fichier :** `agents/critic.py`
-**Lit :** `draft`, `prompts/critic.md`
+**Lit :** `draft`, `selected_article` (url + source), `prompts/critic.md`
 **Écrit :** `critique_approved`, `critic_feedback`, `total_tokens_used`, `messages`
 
 Évalue le draft sur 4 critères pondérés (exactitude, clarté, structure, valeur ajoutée). Retourne un JSON `{approved, score, issues, specific_corrections}`.
@@ -97,6 +97,8 @@ Utilise `temperature=0.7` (plus créatif que les autres agents qui utilisent `LL
 - **Fallback :** si le JSON est unparseable, auto-approve pour éviter une boucle infinie
 
 Le conditional edge dans `graph.py` reboucle sur `writer` si `approved == false` et `iteration_count < MAX_CRITIQUE_ITERATIONS`.
+
+**Gestion des fonctionnalités récentes :** le critic reçoit l'URL source et le nom de la source de l'article (`{source_url}`, `{source_name}`). Le prompt `critic.md` lui interdit de rejeter un article uniquement parce qu'il ne connaît pas la fonctionnalité décrite — sa knowledge cutoff peut lui faire manquer des annonces récentes. La règle : si la source est un blog officiel d'éditeur (`aws.amazon.com`, `cloud.google.com`, `azure.microsoft.com`, `kubernetes.io`, etc.), l'existence de la fonctionnalité est considérée comme vraie. Seules les erreurs vérifiables (mauvaise syntaxe, commande incorrecte, contradiction logique) justifient une pénalité sur l'exactitude technique.
 
 ---
 
