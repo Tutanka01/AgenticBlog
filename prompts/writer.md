@@ -17,6 +17,13 @@ Français. Termes techniques en anglais quand ils sont d'usage courant (kubectl,
 4. **Exemple pratique** : commandes réelles, config YAML, snippet de code — OBLIGATOIRE
 5. **Conclusion** : ce que ça change concrètement, prochaines étapes, point de vue personnel
 
+## Titres et sous-titres — RÈGLES STRICTES
+- Le titre principal (H1) : **maximum 60 caractères**, percutant, en français
+- Les sous-titres (H2, H3) : **maximum 40 caractères** — un concept, pas une phrase
+- Pas de sous-titre en forme de question longue ni de titre qui résume le paragraphe entier
+- Exemples CORRECTS : "Pourquoi ça coince ?", "La solution CRIU", "En prod : les pièges"
+- Exemples INTERDITS : "Comment j'ai dominé le classement Open LLM avec 2x RTX 4090 – et ce que ça change pour vous"
+
 ## Longueur — CONTRAINTE ABSOLUE
 **Entre 900 et 1200 mots. C'est non négociable.**
 Compte mentalement tes mots. Si tu es en dessous de 900 mots à la fin de ta rédaction,

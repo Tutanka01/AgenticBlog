@@ -82,6 +82,8 @@ Au premier appel (`iteration_count == 0`), rédige le brouillon complet. Aux app
 
 Utilise `temperature=0.7` (plus créatif que les autres agents qui utilisent `LLM_TEMPERATURE`).
 
+**Contraintes sur les titres :** le prompt `writer.md` impose des limites strictes sur les headings — H1 max 60 caractères, H2/H3 max 40 caractères. Les sous-titres doivent nommer un concept, pas résumer un paragraphe entier.
+
 ---
 
 ## critic
@@ -110,13 +112,16 @@ Le conditional edge dans `graph.py` reboucle sur `writer` si `approved == false`
 
 Génère les 3 formats avec deux chemins distincts :
 
+**Titre et description — via LLM :**
+Le LLM génère un titre français percutant (max 80 chars, jamais le titre RSS brut) et une description SEO avec hook (1-2 phrases, 120-155 chars). Fallbacks si le LLM échoue : titre RSS brut + premier texte non-heading du draft (via `_fallback_description` qui ignore les lignes `#`).
+
 **Blog post — sans LLM :**
-Le draft validé n'est pas réécrit. `formatter` construit uniquement le front matter YAML (`title`, `date`, `tags`, `description`, `author`) et le préfixe au draft. La description est extraite des 25 premiers mots du draft. Cela garantit que le blog post conserve exactement les 900–1200 mots validés par le critic.
+Le draft validé n'est pas réécrit. `formatter` construit le front matter YAML (`title`, `date`, `tags`, `description`, `author`) avec le titre et la description générés, puis le préfixe au draft. Cela garantit que le blog post conserve exactement les 900–1200 mots validés par le critic.
 
 **LinkedIn + YouTube — via LLM :**
-Un seul appel LLM avec `prompts/formatter_social.md`. Le prompt demande au modèle de séparer les sections avec des marqueurs `===LINKEDIN===` et `===YOUTUBE===`. L'agent extrait chaque section avec une regex.
+Même appel LLM que pour le titre/description. `prompts/formatter_social.md` demande 4 sections séparées par des marqueurs `===TITLE===`, `===DESCRIPTION===`, `===LINKEDIN===`, `===YOUTUBE===`. L'agent extrait chaque section avec une regex.
 
-Le post LinkedIn suit des contraintes strictes définies dans `formatter_social.md` : accroche par question directe ou fait chiffré, formules génériques interdites, exactement 3 hashtags, max 280 caractères. Le script YouTube respecte une structure en 4 temps avec timecodes (0s hook → 5s problème → 15s solution → 50s CTA).
+Le post LinkedIn suit des contraintes strictes : accroche par question directe ou fait chiffré, formules génériques interdites, exactement 3 hashtags, max 280 caractères. Le script YouTube respecte une structure en 4 temps avec timecodes (0s hook → 5s problème → 15s solution → 50s CTA).
 
 **Tags :** extraits des mots de `article["title"]` intersectés avec `INTEREST_TOPICS` (5 max). Fallback sur les 3 premiers topics de la liste globale.
 

@@ -12,15 +12,19 @@ def _extract_section(text: str, marker: str) -> str:
     return match.group(1).strip() if match else ""
 
 
-def _build_blog_post(draft: str, run_date: str, tags: list[str], article: dict) -> str:
-    """
-    Construit le blog post SANS appeler le LLM.
-    Ajoute juste le front matter YAML au draft validé.
-    Le draft est le contenu final — ne pas le réécrire.
-    """
-    title = article.get("title", "Article")
-    description = " ".join(draft.split()[:25]) + "..."  # 25 premiers mots comme description SEO
+def _fallback_description(draft: str) -> str:
+    """Extrait les premiers mots du draft en ignorant les lignes de heading Markdown."""
+    for line in draft.splitlines():
+        stripped = line.strip().lstrip("#").strip()
+        if len(stripped) > 40:
+            words = stripped.split()[:20]
+            return " ".join(words) + "..."
+    return draft[:120] + "..."
 
+
+def _build_blog_post(draft: str, run_date: str, tags: list[str],
+                     title: str, description: str) -> str:
+    """Préfixe le front matter YAML au draft validé. Ne réécrit pas le contenu."""
     front_matter = {
         "title": title,
         "date": run_date,
@@ -34,8 +38,9 @@ def _build_blog_post(draft: str, run_date: str, tags: list[str], article: dict) 
 
 def formatter_node(state: PipelineState) -> dict:
     """
+    - title + description : générés par LLM (français, hook fort)
     - blog_post : front matter YAML + draft validé (PAS de réécriture LLM)
-    - linkedin_post + youtube_script : générés par LLM depuis le draft
+    - linkedin_post + youtube_script : générés par LLM
     """
     draft = state["draft"]
     run_date = state.get("run_date", "")
@@ -45,18 +50,19 @@ def formatter_node(state: PipelineState) -> dict:
     if not tags:
         tags = INTEREST_TOPICS[:3]
 
-    # Blog post : PAS de LLM, juste front matter + draft
-    blog_post = _build_blog_post(draft, run_date, tags, article)
+    # Fallbacks si le LLM échoue
+    title = article.get("title", "Article")
+    description = _fallback_description(draft)
 
-    # LinkedIn + YouTube : LLM avec prompt dédié
+    linkedin_post = youtube_script = ""
+    tokens_used = 0
+
     prompt_template = (PROMPTS_DIR / "formatter_social.md").read_text()
     prompt = (prompt_template
               .replace("{draft}", draft)
               .replace("{date}", run_date)
               .replace("{tags}", ", ".join(tags)))
 
-    linkedin_post = youtube_script = ""
-    tokens_used = 0
     try:
         response = llm_client.chat.completions.create(
             model=LLM_MODEL,
@@ -65,10 +71,15 @@ def formatter_node(state: PipelineState) -> dict:
         )
         raw = response.choices[0].message.content.strip()
         tokens_used = response.usage.total_tokens if response.usage else 0
+
+        title = _extract_section(raw, "TITLE") or title
+        description = _extract_section(raw, "DESCRIPTION") or description
         linkedin_post = _extract_section(raw, "LINKEDIN")
         youtube_script = _extract_section(raw, "YOUTUBE")
     except Exception as exc:
         print(f"[FORMATTER] LLM error: {exc}")
+
+    blog_post = _build_blog_post(draft, run_date, tags, title, description)
 
     blog_words = len(blog_post.split())
     linkedin_chars = len(linkedin_post)

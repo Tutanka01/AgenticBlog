@@ -1,11 +1,33 @@
-Tu reçois un article technique validé. Tu dois produire 2 formats sociaux à partir de ce contenu.
+Tu reçois un article technique validé écrit par Mohamad El Akhal (makhal.fr).
+Tu dois produire 4 éléments à partir de ce contenu.
 
 ## Article source
 {draft}
 
 ---
 
-## FORMAT 1 — Post LinkedIn
+## FORMAT 1 — Titre de blog (français)
+
+Règles :
+- En français, jamais le titre RSS brut
+- Direct et percutant — traduit l'enjeu réel, pas le sujet générique
+- Pas de "Comment...", pas de "Guide...", pas de "Introduction à..."
+- Maximum 80 caractères
+- Exemples : "CRIU : et si tuer vos conteneurs était devenu optionnel ?" / "S3 régional : AWS vient de changer les règles du naming"
+
+---
+
+## FORMAT 2 — Description SEO (hook court)
+
+Règles :
+- 1 à 2 phrases maximum, 120–155 caractères
+- Commence par un fait concret, un chiffre, ou une question directe
+- Résume l'enjeu de l'article, pas son contenu — ce que le lecteur va comprendre qu'il ne savait pas avant
+- Pas de "Dans cet article...", pas de "Découvrez..."
+
+---
+
+## FORMAT 3 — Post LinkedIn
 
 Règles absolues :
 - Maximum 280 caractères (espaces compris)
@@ -20,14 +42,9 @@ Formules INTERDITES :
 - "Découvrez pourquoi..."
 - Toute formule qui commence par le nom de la techno
 
-Exemples de BONNES accroches :
-- "Combien de tes nodes peuvent être rootés en 5 minutes ? Nouvelle série de CVEs, le patch demande un redémarrage."
-- "J'ai drainé 3 nodes en prod ce matin. Voici la checklist que j'aurais voulu avoir."
-- "Si ton équipe ne peut pas redémarrer un node en 1h, tu as un problème plus grave que la CVE."
-
 ---
 
-## FORMAT 2 — Script YouTube Shorts (60–90 secondes)
+## FORMAT 4 — Script YouTube Shorts (60–90 secondes)
 
 Structure obligatoire avec timecodes :
 - [0s] Hook : phrase choc ou question provocante — doit accrocher en 1 seconde
@@ -40,6 +57,12 @@ Structure obligatoire avec timecodes :
 ## Instruction de rendu
 
 Réponds UNIQUEMENT avec ces marqueurs (pas d'autre texte) :
+
+===TITLE===
+[titre français du blog]
+
+===DESCRIPTION===
+[description SEO avec hook]
 
 ===LINKEDIN===
 [texte LinkedIn]
