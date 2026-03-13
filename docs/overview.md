@@ -1,6 +1,6 @@
 # AgenticBlog — Vue d'ensemble
 
-Pipeline multi-agents qui lit des flux RSS tech, sélectionne l'article le plus pertinent, rédige un post validé par un critique, puis exporte 3 formats (blog Markdown, LinkedIn, YouTube Shorts). Tout le run est persisté en SQLite et peut être repris après une interruption.
+Pipeline multi-agents qui lit des flux RSS tech, sélectionne l'article le plus pertinent, fetche son contenu complet, rédige un post validé par un critique, puis exporte 3 formats (blog Markdown, LinkedIn, YouTube Shorts). Tout le run est persisté en SQLite et peut être repris après une interruption.
 
 ---
 
@@ -8,11 +8,13 @@ Pipeline multi-agents qui lit des flux RSS tech, sélectionne l'article le plus 
 
 ```
 scraper_node
-    ↓  raw_articles[]
+    ↓  raw_articles[] — {title, url, summary, source, published, fetched_at}
 filter_node          ← LLM : score chaque article 0-10
     ↓  filtered_articles[] (score ≥ FILTER_THRESHOLD, top TOP_N_FILTERED)
-selector_node        ← pick top-1
+selector_node        ← score composite : LLM score + freshness bonus (0-1)
     ↓  selected_article{}
+fetcher_node         ← fetch HTML → extrait le texte principal (max 8000 chars)
+    ↓  selected_article{} + full_content
 writer_node  ←──────────────────────────────┐
     ↓  draft (v1, v2…)                       │ critic_feedback
 critic_node  ──(score < 7, iter < 3)────────┘
@@ -43,8 +45,9 @@ La boucle writer ↔ critic est bornée à `MAX_CRITIQUE_ITERATIONS` (défaut : 
 ├── agents/
 │   ├── scraper.py       # Fetch RSS → raw_articles
 │   ├── filter.py        # Score LLM → filtered_articles
-│   ├── selector.py      # Pick top-1 → selected_article
-│   ├── writer.py        # Rédige / révise → draft
+│   ├── selector.py      # Score composite → selected_article
+│   ├── fetcher.py       # Fetch HTML → selected_article.full_content
+│   ├── writer.py        # Rédige / révise → draft (avec retry longueur)
 │   ├── critic.py        # Évalue → feedback + approve/reject
 │   ├── formatter.py     # 3 formats → blog/linkedin/youtube
 │   └── output_saver.py  # Persiste + résumé console
@@ -69,7 +72,7 @@ La boucle writer ↔ critic est bornée à `MAX_CRITIQUE_ITERATIONS` (défaut : 
 
 Toutes les données transitent via `PipelineState` (défini dans `state.py`). Chaque agent reçoit le state complet en lecture et retourne **uniquement les clés qu'il modifie**.
 
-Les messages inter-agents (`ACPMessage`) sont accumulés dans `state["messages"]` via le reducer `add_messages` de LangGraph — ils ne sont jamais écrasés, seulement ajoutés.
+Les messages inter-agents (`ACPMessage`) sont accumulés dans `state["messages"]` via `operator.add` comme reducer — ils ne sont jamais écrasés, seulement ajoutés. (`add_messages` de LangGraph n'est pas utilisé car il attend des objets LangChain avec un champ `.id`, incompatible avec les Pydantic models purs.)
 
 ---
 

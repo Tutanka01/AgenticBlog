@@ -31,11 +31,10 @@ def formatter_node(state: PipelineState) -> dict:
         tags = INTEREST_TOPICS[:3]
 
     prompt_template = (PROMPTS_DIR / "formatter.md").read_text()
-    prompt = prompt_template.format(
-        draft=draft,
-        date=run_date,
-        tags=", ".join(tags),
-    )
+    prompt = (prompt_template
+              .replace("{draft}", draft)
+              .replace("{date}", run_date)
+              .replace("{tags}", ", ".join(tags)))
 
     blog_post = linkedin_post = youtube_script = ""
     tokens_used = 0

@@ -25,6 +25,7 @@ def scraper_node(state: PipelineState) -> dict:
                     "url": entry.get("link", ""),
                     "summary": entry.get("summary", entry.get("description", ""))[:500],
                     "source": source,
+                    "published": entry.get("published", ""),
                     "fetched_at": datetime.now(timezone.utc).isoformat(),
                 })
         except Exception as exc:

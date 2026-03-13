@@ -10,7 +10,13 @@ Chaque agent est une fonction pure `(state: PipelineState) -> dict`. Il reçoit 
 **Lit :** `config.RSS_FEEDS`, `config.MAX_ARTICLES_TO_FETCH`
 **Écrit :** `raw_articles`, `messages`
 
-Parse chaque feed RSS avec `feedparser`. En cas d'erreur sur un feed, il log et continue (les autres feeds ne sont pas bloqués). Retourne une liste de dicts `{title, url, summary, source, fetched_at}`.
+Parse chaque feed RSS avec `feedparser`. En cas d'erreur sur un feed, il log et continue (les autres feeds ne sont pas bloqués). Retourne une liste de dicts :
+
+```
+{title, url, summary, source, published, fetched_at}
+```
+
+`published` est le champ de date de publication du feed RSS (vide si absent). Il est utilisé par `selector` pour calculer le bonus de fraîcheur.
 
 ---
 
@@ -32,19 +38,45 @@ Envoie tous les articles au LLM en une seule requête avec le prompt `filter.md`
 **Lit :** `filtered_articles`, `raw_articles`
 **Écrit :** `selected_article`, `messages`
 
-Prend simplement `filtered_articles[0]` (déjà trié par score). Si `filtered_articles` est vide (tous les articles en dessous du seuil), utilise `raw_articles[0]` comme fallback.
+Sélectionne l'article avec le **score composite** le plus élevé :
+
+```
+score_composite = score_llm (0–10) + freshness_bonus (0–1)
+```
+
+Le bonus de fraîcheur décroit linéairement de 1.0 (article publié maintenant) à 0.0 (article vieux de 7 jours ou plus). Il est calculé depuis le champ `published` du feed RSS, ou `fetched_at` en fallback. Cela permet de départager deux articles proches en score LLM en favorisant le plus récent, sans jamais écraser un bon score.
+
+**Fallback :** si `filtered_articles` est vide, utilise `raw_articles[0]`.
+
+---
+
+## fetcher
+
+**Fichier :** `agents/fetcher.py`
+**Lit :** `selected_article`
+**Écrit :** `selected_article` (enrichi avec `full_content`), `messages`
+
+Fetch le HTML de l'URL de l'article sélectionné via `httpx`, puis extrait le texte principal avec `BeautifulSoup`. Les balises parasites (`script`, `style`, `nav`, `footer`, `aside`, `header`, `form`) sont supprimées avant extraction. Le texte est tronqué à 8000 caractères pour rester dans le contexte d'un LLM 7B.
+
+La priorité d'extraction est : `<article>` → `<main>` → `<body>`.
+
+**Fallback :** si le fetch échoue (timeout, 403, etc.), `full_content` prend la valeur du `summary` RSS. Le pipeline n'est jamais bloqué par un article inaccessible.
 
 ---
 
 ## writer
 
 **Fichier :** `agents/writer.py`
-**Lit :** `selected_article`, `critic_feedback`, `iteration_count`, `prompts/writer.md`
+**Lit :** `selected_article` (dont `full_content`), `critic_feedback`, `iteration_count`, `prompts/writer.md`
 **Écrit :** `draft`, `iteration_count`, `total_tokens_used`, `messages`
 
-Au premier appel (`iteration_count == 0`), rédige le brouillon complet depuis `selected_article`. Aux appels suivants, reçoit `critic_feedback` et applique uniquement les corrections demandées sans réécrire l'article entièrement.
+Utilise `full_content` en priorité sur `summary` pour alimenter le prompt — le LLM dispose ainsi du contenu réel de l'article, pas juste du résumé RSS.
 
-Utilise `temperature=0.7` (plus créatif que les autres agents).
+Au premier appel (`iteration_count == 0`), rédige le brouillon complet. Aux appels suivants, applique uniquement les corrections du `critic_feedback` sans réécrire entièrement.
+
+**Retry automatique sur longueur :** si le brouillon v1 est inférieur à 800 mots, un second appel LLM est déclenché automatiquement avec une instruction explicite d'extension. Le draft le plus long des deux est conservé. Ce retry ne s'applique qu'à l'itération 1 pour éviter de doubler les appels lors des révisions critic.
+
+Utilise `temperature=0.7` (plus créatif que les autres agents qui utilisent `LLM_TEMPERATURE`).
 
 ---
 
@@ -71,6 +103,8 @@ Le conditional edge dans `graph.py` reboucle sur `writer` si `approved == false`
 **Écrit :** `blog_post`, `linkedin_post`, `youtube_script`, `total_tokens_used`, `messages`
 
 Génère les 3 formats en une seule requête LLM. Le prompt demande au modèle de séparer les sections avec des marqueurs `===BLOG===`, `===LINKEDIN===`, `===YOUTUBE===`. L'agent extrait ensuite chaque section avec une regex.
+
+Le post LinkedIn suit des contraintes strictes définies dans `prompts/formatter.md` : accroche par question directe ou fait chiffré, formules génériques interdites, exactement 3 hashtags, max 280 caractères.
 
 **Fallback :** si les marqueurs sont absents, `blog_post = draft`.
 

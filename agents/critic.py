@@ -14,7 +14,7 @@ def critic_node(state: PipelineState) -> dict:
     iteration = state.get("iteration_count", 1)
 
     prompt_template = (PROMPTS_DIR / "critic.md").read_text()
-    prompt = prompt_template.format(draft=draft)
+    prompt = prompt_template.replace("{draft}", draft)
 
     approved = False
     feedback = ""

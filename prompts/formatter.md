@@ -30,13 +30,27 @@ author: "Mohamad"
 
 Règles absolues :
 - Maximum 280 caractères (espaces compris)
-- Première ligne = accroche forte qui donne envie de lire (pas de "Je partage...", "Bonjour LinkedIn...")
+- JAMAIS commencer par le nom de la techno, un titre d'article, ou une affirmation générique
+- Commence par UNE QUESTION DIRECTE ou UN FAIT CHIFFRÉ qui interpelle personnellement l'ingénieur
+- Ton : direct, terrain, pas "corporate". Parle comme un ingénieur à ses pairs, pas comme un communiqué de presse.
 - Exactement 3 hashtags pertinents à la fin
 - Pas de liens, pas de balises Markdown
 
-Exemple de format attendu :
+Formules interdites (ne jamais utiliser) :
+- "X ne suffit plus."
+- "La solution ?"
+- "Découvrez pourquoi..."
+- "Dans cet article..."
+- Toute formule qui commence par le nom de la techno
+
+Exemples de BONNES accroches :
 ```
-Kubernetes 1.32 vient de faire passer la Gateway API en GA. Fini les Ingress bricolés. Voici ce que ça change concrètement pour vos clusters.
+Combien de tes nodes peuvent être rootés en moins de 5 minutes ? Nouvelle série de CVEs dans le noyau Linux, et le patch demande un redémarrage.
+
+#Linux #Cybersecurity #DevOps
+```
+```
+J'ai drainé 3 nodes en prod ce matin à cause de 9 CVEs AppArmor. Voici la checklist que j'aurais voulu avoir.
 
 #Kubernetes #DevOps #CloudNative
 ```

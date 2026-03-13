@@ -1,7 +1,9 @@
 """
 StateGraph du pipeline de contenu.
-Routing : scraper → filter → selector → writer ↔ critic (max 3 iter) → formatter → output_saver
+Routing : scraper → filter → selector → fetcher → writer ↔ critic (max 3 iter) → formatter → output_saver
 """
+import sqlite3
+from pathlib import Path
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.sqlite import SqliteSaver
 
@@ -10,6 +12,7 @@ from config import CHECKPOINT_DB
 from agents.scraper import scraper_node
 from agents.filter import filter_node
 from agents.selector import selector_node
+from agents.fetcher import fetcher_node
 from agents.writer import writer_node
 from agents.critic import critic_node
 from agents.formatter import formatter_node
@@ -31,6 +34,7 @@ def build_graph():
     builder.add_node("scraper", scraper_node)
     builder.add_node("filter", filter_node)
     builder.add_node("selector", selector_node)
+    builder.add_node("fetcher", fetcher_node)
     builder.add_node("writer", writer_node)
     builder.add_node("critic", critic_node)
     builder.add_node("formatter", formatter_node)
@@ -39,7 +43,8 @@ def build_graph():
     builder.set_entry_point("scraper")
     builder.add_edge("scraper", "filter")
     builder.add_edge("filter", "selector")
-    builder.add_edge("selector", "writer")
+    builder.add_edge("selector", "fetcher")
+    builder.add_edge("fetcher", "writer")
     builder.add_edge("writer", "critic")
     builder.add_conditional_edges("critic", should_continue_writing, {
         "writer": "writer",
@@ -48,7 +53,9 @@ def build_graph():
     builder.add_edge("formatter", "output_saver")
     builder.add_edge("output_saver", END)
 
-    checkpointer = SqliteSaver.from_conn_string(CHECKPOINT_DB)
+    Path(CHECKPOINT_DB).parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(CHECKPOINT_DB, check_same_thread=False)
+    checkpointer = SqliteSaver(conn)
     return builder.compile(checkpointer=checkpointer)
 
 

@@ -2,20 +2,40 @@
 
 ## Prérequis
 
-- Python 3.11+
+- Python 3.12 (recommandé — voir ci-dessous)
 - Un compte OpenRouter (défaut) ou Ollama en local
 
 ---
 
 ## Installation
 
+### 1. Vérifier la version Python
+
+```bash
+python3.12 --version
+```
+
+Si la commande échoue, installe Python 3.12 via Homebrew (macOS) :
+
+```bash
+brew install python@3.12
+```
+
+### 2. Créer et activer le venv
+
 ```bash
 git clone <repo>
 cd AgenticBlog
 
-python -m venv .venv
-source .venv/bin/activate    # Windows : .venv\Scripts\activate
+python3.12 -m venv venv
+source venv/bin/activate
 
+python --version   # doit afficher 3.12.x
+```
+
+### 3. Installer les dépendances
+
+```bash
 pip install -r requirements.txt
 ```
 

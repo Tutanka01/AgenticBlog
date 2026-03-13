@@ -3,9 +3,9 @@ State schema partagé entre tous les agents.
 ACPMessage : message structuré inter-agents (pattern Agent Communication Protocol).
 PipelineState : state complet du graph LangGraph.
 """
+import operator
 from typing import Annotated, TypedDict
 from pydantic import BaseModel
-from langgraph.graph.message import add_messages
 
 
 class ACPMessage(BaseModel):
@@ -18,8 +18,8 @@ class ACPMessage(BaseModel):
 
 
 class PipelineState(TypedDict):
-    # Messages inter-agents (append-only via add_messages reducer)
-    messages: Annotated[list[ACPMessage], add_messages]
+    # Messages inter-agents (append-only via operator.add)
+    messages: Annotated[list[ACPMessage], operator.add]
 
     # Articles
     raw_articles: list[dict]        # {title, url, summary, source, fetched_at}

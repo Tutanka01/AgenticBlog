@@ -17,8 +17,12 @@ Français. Termes techniques en anglais quand ils sont d'usage courant (kubectl,
 4. **Exemple pratique** : commandes réelles, config YAML, snippet de code — OBLIGATOIRE
 5. **Conclusion** : ce que ça change concrètement, prochaines étapes, point de vue personnel
 
-## Longueur
-800 à 1200 mots. Ni plus, ni moins.
+## Longueur — CONTRAINTE ABSOLUE
+**Entre 900 et 1200 mots. C'est non négociable.**
+Compte mentalement tes mots. Si tu es en dessous de 900 mots à la fin de ta rédaction,
+développe la section "Exemple pratique" avec un second exemple, ou ajoute une section
+"Pièges courants" avec 2-3 erreurs fréquentes que font les ingénieurs sur ce sujet.
+Ne rembourre pas avec du texte vide — ajoute de la valeur réelle.
 
 ## Article source
 {article}

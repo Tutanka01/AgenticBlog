@@ -17,10 +17,9 @@ def filter_node(state: PipelineState) -> dict:
     """Score raw_articles via LLM → filtered_articles (score >= FILTER_THRESHOLD, top TOP_N_FILTERED)."""
     raw = state["raw_articles"]
     prompt_template = (PROMPTS_DIR / "filter.md").read_text()
-    prompt = prompt_template.format(
-        topics=", ".join(INTEREST_TOPICS),
-        articles=_build_articles_text(raw),
-    )
+    prompt = (prompt_template
+              .replace("{topics}", ", ".join(INTEREST_TOPICS))
+              .replace("{articles}", _build_articles_text(raw)))
 
     scores: list[dict] = []
     tokens_used = 0
