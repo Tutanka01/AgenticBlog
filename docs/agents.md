@@ -35,18 +35,24 @@ Envoie tous les articles au LLM en une seule requête avec le prompt `filter.md`
 ## selector
 
 **Fichier :** `agents/selector.py`
-**Lit :** `filtered_articles`, `raw_articles`
-**Écrit :** `selected_article`, `messages`
+**Lit :** `filtered_articles`, `raw_articles`, `memory/MEMORY.md` (via `memory_manager`)
+**Écrit :** `selected_article`, `memory_context`, `messages`
 
 Sélectionne l'article avec le **score composite** le plus élevé :
 
 ```
-score_composite = score_llm (0–10) + freshness_bonus (0–1)
+score_composite = score_llm (0–10) + freshness_bonus (0–1) - novelty_penalty (0–2)
 ```
 
-Le bonus de fraîcheur décroit linéairement de 1.0 (article publié maintenant) à 0.0 (article vieux de 7 jours ou plus). Il est calculé depuis le champ `published` du feed RSS, ou `fetched_at` en fallback. Cela permet de départager deux articles proches en score LLM en favorisant le plus récent, sans jamais écraser un bon score.
+Le bonus de fraîcheur décroit linéairement de 1.0 (article publié maintenant) à 0.0 (article vieux de 7 jours ou plus). Il est calculé depuis le champ `published` du feed RSS, ou `fetched_at` en fallback.
+
+La **pénalité de nouveauté** compare les mots-clés de chaque article candidat avec les articles publiés dans les 14 derniers jours (via `memory_manager.get_novelty_penalty`). Elle vaut 1.5 si le chevauchement Jaccard dépasse 30%, et 2.0 si le sujet est identique à > 60%. Cela favorise la diversité éditoriale sans jamais éliminer un article — même pénalisé de 2.0, un article avec un score LLM de 9/10 restera en tête.
+
+Après sélection, construit le `memory_context` (via `build_writer_context`) : liste Markdown des 3 articles passés les plus thématiquement proches, injectée dans le prompt writer.
 
 **Fallback :** si `filtered_articles` est vide, utilise `raw_articles[0]`.
+
+Voir `docs/memory.md` pour les fondements théoriques.
 
 ---
 
@@ -131,9 +137,11 @@ Le post LinkedIn suit des contraintes strictes : accroche par question directe o
 
 **Fichier :** `agents/output_saver.py`
 **Lit :** `blog_post`, `linkedin_post`, `youtube_script`, `run_id`, `run_date`, `filtered_articles`, `selected_article`, `iteration_count`, `total_tokens_used`
-**Écrit :** `messages`
+**Écrit :** `messages` + `memory/MEMORY.md` + `memory/topics/{category}.md`
 
 Crée `output/{run_date}/{run_id[:8]}/` et écrit les 4 fichiers. Plusieurs runs le même jour coexistent sans jamais s'écraser. Le `run_metadata.json` contient toutes les méta du run pour permettre une analyse post-run sans relire les fichiers markdown.
+
+Après l'écriture des fichiers, appelle `memory_manager.update_memory(state)` pour mettre à jour l'index MEMORY.md et le fichier topic correspondant. Cette opération est **non-bloquante** : une erreur de mise à jour mémoire est loguée mais ne fait pas échouer le pipeline.
 
 ---
 

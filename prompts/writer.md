@@ -31,6 +31,16 @@ développe la section "Exemple pratique" avec un second exemple, ou ajoute une s
 "Pièges courants" avec 2-3 erreurs fréquentes que font les ingénieurs sur ce sujet.
 Ne rembourre pas avec du texte vide — ajoute de la valeur réelle.
 
+## Contexte mémoire — Articles passés sur ce sujet
+{memory_context}
+
+Si un article passé est pertinent, tu peux créer de la continuité éditoriale.
+Formule suggérée : "Dans mon article sur [titre court], j'avais expliqué X. Aujourd'hui..."
+Ne force pas la référence si elle n'apporte rien.
+
+Les "Leçons critiques" dans le contexte mémoire sont des erreurs réelles signalées par
+le critique sur des articles précédents — applique-les directement et sans exception.
+
 ## Article source
 {article}
 

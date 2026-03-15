@@ -22,9 +22,11 @@ def writer_node(state: PipelineState) -> dict:
         f"URL : {article.get('url', '')}\n"
         f"Contenu complet :\n{article.get('full_content') or article.get('summary', '')}"
     )
+    memory_ctx = state.get("memory_context", "")
     prompt = (prompt_template
               .replace("{article}", article_text)
-              .replace("{feedback}", feedback if feedback else "Aucun feedback — premier brouillon."))
+              .replace("{feedback}", feedback if feedback else "Aucun feedback — premier brouillon.")
+              .replace("{memory_context}", memory_ctx if memory_ctx else "Aucun article passé sur ce sujet."))
 
     draft = ""
     tokens_used = 0

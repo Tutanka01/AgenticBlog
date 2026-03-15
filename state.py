@@ -37,6 +37,9 @@ class PipelineState(TypedDict):
     linkedin_post: str
     youtube_script: str
 
+    # Mémoire éditoriale
+    memory_context: str    # Contexte des articles passés, injecté dans writer
+
     # Meta
     run_id: str
     run_date: str

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from state import PipelineState, ACPMessage
 from config import OUTPUT_DIR, CHECKPOINT_DB
+from memory_manager import update_memory
 
 
 def output_saver_node(state: PipelineState) -> dict:
@@ -49,6 +50,12 @@ def output_saver_node(state: PipelineState) -> dict:
     print(f"[OUTPUT]     Saved → {out_dir}/")
     print(f"             Checkpoint: {CHECKPOINT_DB} (run_id: {run_id[:8]}...)")
     print(f"Done — {tokens} tokens used")
+
+    try:
+        update_memory(state)
+        print(f"[OUTPUT]     Memory updated — MEMORY.md + topics/")
+    except Exception as exc:
+        print(f"[OUTPUT]  Memory update failed (non-blocking): {exc}")
 
     msg = ACPMessage(
         sender="output_saver",

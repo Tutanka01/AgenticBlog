@@ -6,6 +6,7 @@
 - Contrats des agents: `docs/agents.md`
 - Frontend (React/Vite/Tailwind): `docs/frontend.md`
 - Déploiement Docker: `docs/docker.md`
+- Mémoire éditoriale (architecture + papers): `docs/memory.md`
 
 Pipeline multi-agents qui lit des flux RSS tech, sélectionne l'article le plus pertinent, fetche son contenu complet, rédige un post validé par un critique, puis exporte 3 formats (blog Markdown, LinkedIn, YouTube Shorts). Tout le run est persisté en SQLite et peut être repris après une interruption.
 
