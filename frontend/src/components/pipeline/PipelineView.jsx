@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import LogConsole from './LogConsole';
-import NodeDrawer from './NodeDrawer';
+import NodeDetailDrawer from './NodeDetailDrawer';
 import NodeGraph from './NodeGraph';
 import ProgressBar from './ProgressBar';
 
@@ -16,7 +16,7 @@ function subtitleFor(node, state) {
   if (node === 'filter') return meta.kept ? `${meta.kept} kept` : message;
   if (node === 'selector') {
     const score = meta.score || (meta.floats && meta.floats[0]);
-    return score ? `score ${score} · article sélectionné` : message;
+    return score ? `score ${score} · selected` : message;
   }
   if (node === 'fetcher') {
     const method = meta.method || 'direct';
@@ -43,8 +43,9 @@ export default function PipelineView({ nodeStates, logs, elapsedSeconds, onClear
   const nodeState = drawerNode ? nodeStates.get(drawerNode) : null;
 
   return (
-    <div className="flex h-full flex-col px-4 py-4">
-      <div className="card flex-1 p-5">
+    <div className="flex h-full flex-col">
+      {/* Full-bleed graph */}
+      <div className="min-h-0 flex-1">
         <NodeGraph
           nodeStates={nodeStates}
           subtitles={subtitles}
@@ -57,9 +58,15 @@ export default function PipelineView({ nodeStates, logs, elapsedSeconds, onClear
       </div>
 
       <ProgressBar nodeStates={nodeStates} elapsedSeconds={elapsedSeconds} />
-      <LogConsole logs={logs} onClear={onClearLogs} />
+      <LogConsole logs={logs} onClear={onClearLogs} collapsible />
 
-      <NodeDrawer open={Boolean(drawerNode)} node={drawerNode} state={nodeState} onClose={() => setDrawerNode('')} />
+      <NodeDetailDrawer
+        open={Boolean(drawerNode)}
+        node={drawerNode}
+        state={nodeState}
+        logs={logs}
+        onClose={() => setDrawerNode('')}
+      />
     </div>
   );
 }

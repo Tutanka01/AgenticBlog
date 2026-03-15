@@ -1,28 +1,43 @@
-import { useEffect, useMemo, useState } from 'react';
-import Sidebar from './components/layout/Sidebar';
-import Topbar from './components/layout/Topbar';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import CommandBar from './components/layout/CommandBar';
 import HistoryView from './components/history/HistoryView';
 import OutputsView from './components/outputs/OutputsView';
 import PipelineView from './components/pipeline/PipelineView';
-import Toast from './components/ui/Toast';
+import { ToastProvider } from './components/ui/ToastProvider';
 import { useRun } from './hooks/useRun';
 import { useRuns } from './hooks/useRuns';
 import { useSSE } from './hooks/useSSE';
 import { useTheme } from './hooks/useTheme';
+import { useToast } from './hooks/useToast';
 
-export default function App() {
+function AppShell() {
   const [activeView, setActiveView] = useState('pipeline');
   const [category, setCategory] = useState('infra');
   const [streamUrl, setStreamUrl] = useState('');
   const [selectedRunId, setSelectedRunId] = useState('');
-  const [toasts, setToasts] = useState([]);
   const [runStartedAt, setRunStartedAt] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
+  const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
   const { runs, loading: runsLoading, refetch } = useRuns();
   const { data: runData, loading: runLoading } = useRun(selectedRunId);
   const { nodeStates, logs, isRunning, error, latestEvent, resetLogs } = useSSE(streamUrl);
+
+  const notify = useCallback(
+    (message, type = 'info') => {
+      if (type === 'success') {
+        toast.success(message);
+        return;
+      }
+      if (type === 'error') {
+        toast.error(message);
+        return;
+      }
+      toast.info(message);
+    },
+    [toast]
+  );
 
   useEffect(() => {
     if (!selectedRunId && runs.length) {
@@ -46,7 +61,7 @@ export default function App() {
     if (!latestEvent) return;
 
     if (latestEvent.status === 'complete') {
-      addToast('Run completed', 'success');
+      notify('Run completed', 'success');
       refetch();
       if (latestEvent.meta?.run_id) {
         setSelectedRunId(latestEvent.meta.run_id);
@@ -54,30 +69,22 @@ export default function App() {
     }
 
     if (latestEvent.status === 'error') {
-      addToast(latestEvent.message || 'Run failed', 'error');
+      notify(latestEvent.message || 'Run failed', 'error');
       refetch();
     }
-  }, [latestEvent, refetch]);
+  }, [latestEvent, notify, refetch]);
 
   useEffect(() => {
     if (error) {
-      addToast(error, 'error');
+      notify(error, 'error');
     }
-  }, [error]);
+  }, [error, notify]);
 
-  function addToast(message, type = 'info') {
-    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    setToasts((prev) => [...prev, { id, message, type }]);
-    window.setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3000);
-  }
-
-  async function handleRunToggle() {
+  const handleRunToggle = useCallback(async () => {
     if (isRunning) {
       const res = await fetch('/api/run/stop', { method: 'POST' });
       if (res.ok) {
-        addToast('Stop signal sent', 'info');
+        notify('Stop signal sent', 'info');
       }
       return;
     }
@@ -92,21 +99,48 @@ export default function App() {
     });
 
     if (res.status === 409) {
-      addToast('Another run is already active', 'error');
+      notify('Another run is already active', 'error');
       return;
     }
 
     if (!res.ok) {
-      addToast('Unable to start run', 'error');
+      notify('Unable to start run', 'error');
       return;
     }
 
     const json = await res.json();
     setRunStartedAt(Date.now());
     setStreamUrl(`/api/run/stream?category=${encodeURIComponent(category)}&resume_id=${json.run_id}&t=${Date.now()}`);
-    addToast(`Run started: ${json.run_id.slice(0, 8)}`, 'info');
+    notify(`Run lance · category: ${category}`, 'success');
     setActiveView('pipeline');
-  }
+  }, [category, isRunning, notify, resetLogs]);
+
+  useEffect(() => {
+    const isTypingTarget = (target) => {
+      if (!target) return false;
+      if (target.isContentEditable) return true;
+      const tag = target.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+    };
+
+    const onKeyDown = (event) => {
+      const modKey = event.metaKey || event.ctrlKey;
+
+      if (event.key === 'Escape') {
+        window.dispatchEvent(new CustomEvent('agenticblog:escape'));
+      }
+
+      if (modKey && event.key.toLowerCase() === 'c' && activeView === 'outputs' && !isTypingTarget(event.target)) {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent('agenticblog:copy-active-output'));
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [activeView, handleRunToggle, isRunning]);
 
   const topbarData = useMemo(() => {
     const meta = runData?.metadata;
@@ -117,50 +151,47 @@ export default function App() {
   }, [runData, latestEvent, isRunning, elapsedSeconds]);
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar
+    <div className="flex h-screen flex-col overflow-hidden">
+      <CommandBar
         activeView={activeView}
         onViewChange={setActiveView}
         category={category}
         onCategoryChange={setCategory}
         isRunning={isRunning}
         onRunToggle={handleRunToggle}
+        topbarData={topbarData}
+        hasError={latestEvent?.status === 'error'}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
-      <main className="flex min-w-0 flex-1 flex-col" style={{ backgroundColor: 'var(--bg-base)' }}>
-        <Topbar
-          activeView={activeView}
-          onViewChange={setActiveView}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-          runBadge={topbarData.runBadge}
-          tokenBadge={topbarData.tokenBadge}
-          durationBadge={topbarData.duration}
-          hasError={latestEvent?.status === 'error'}
-        />
-
-        <section className="min-h-0 flex-1">
-          {activeView === 'pipeline' && (
+      <main className="min-h-0 flex-1 view-content" style={{ backgroundColor: 'var(--bg-base)' }}>
+        {activeView === 'pipeline' && (
+          <div key="pipeline" className="view-enter h-full">
             <PipelineView
               nodeStates={nodeStates}
               logs={logs}
               elapsedSeconds={elapsedSeconds}
               onClearLogs={resetLogs}
             />
-          )}
+          </div>
+        )}
 
-          {activeView === 'outputs' && (
+        {activeView === 'outputs' && (
+          <div key="outputs" className="view-enter h-full">
             <OutputsView
               runs={runs}
               selectedRunId={selectedRunId}
               onSelectRun={setSelectedRunId}
               runData={runData}
               loading={runsLoading || runLoading}
-              onToast={addToast}
+              onToast={notify}
             />
-          )}
+          </div>
+        )}
 
-          {activeView === 'history' && (
+        {activeView === 'history' && (
+          <div key="history" className="view-enter h-full">
             <HistoryView
               runs={runs}
               onOpenOutputs={(runId) => {
@@ -175,7 +206,7 @@ export default function App() {
                 });
 
                 if (!res.ok) {
-                  addToast('Unable to resume run', 'error');
+                  notify('Unable to resume run', 'error');
                   return;
                 }
 
@@ -184,32 +215,30 @@ export default function App() {
                 setElapsedSeconds(0);
                 setStreamUrl(`/api/run/stream?category=${encodeURIComponent(category)}&resume_id=${json.run_id}&t=${Date.now()}`);
                 setActiveView('pipeline');
-                addToast(`Run resumed: ${runId.slice(0, 8)}`, 'info');
+                notify(`Run resumed: ${runId.slice(0, 8)}`, 'info');
               }}
               onDelete={async (runId) => {
                 const res = await fetch(`/api/runs/${runId}`, { method: 'DELETE' });
                 if (!res.ok) {
-                  addToast('Delete failed', 'error');
+                  notify('Delete failed', 'error');
                   return;
                 }
-                addToast('Run deleted', 'success');
+                notify('Run deleted', 'success');
                 refetch();
               }}
-              onToast={addToast}
+              onToast={notify}
             />
-          )}
-        </section>
+          </div>
+        )}
       </main>
-
-      <div className="fixed bottom-3 right-3 z-50">
-        {toasts.map((toast) => (
-          <Toast
-            key={toast.id}
-            toast={toast}
-            onClose={(id) => setToasts((prev) => prev.filter((t) => t.id !== id))}
-          />
-        ))}
-      </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
   );
 }

@@ -1,11 +1,21 @@
-export default function MetricCard({ label, value }) {
+export default function MetricCard({ label, value, icon: Icon, valueColor }) {
   return (
     <div
-      className="rounded-[7px] border px-3 py-2"
-      style={{ borderColor: 'var(--bg-border)', backgroundColor: 'var(--bg-elevated)' }}
+      className="glass-card flex items-start justify-between px-4 py-3.5"
     >
-      <p className="text-[18px] font-bold tracking-[-0.4px]">{value}</p>
-      <p className="label mt-1">{label}</p>
+      <div>
+        <p className="text-[22px] font-extrabold tracking-[-0.8px]" style={{ color: valueColor || 'var(--text-primary)' }}>
+          {value}
+        </p>
+        <p
+          className="mt-1 text-[9px] font-medium uppercase"
+          style={{ color: 'var(--text-muted)', letterSpacing: '0.08em' }}
+        >
+          {label}
+        </p>
+      </div>
+
+      {Icon ? <Icon size={14} style={{ color: 'var(--text-muted)' }} /> : null}
     </div>
   );
 }
