@@ -2,7 +2,7 @@ import json
 import re
 
 from state import PipelineState, ACPMessage
-from config import LLM_MODEL, LLM_TEMPERATURE, PROMPTS_DIR
+from config import LLM_MODEL, LLM_TEMPERATURE, PROMPTS_DIR, OUTPUT_LANGUAGE_LABELS
 from llm import llm_client
 
 APPROVAL_THRESHOLD = 7
@@ -14,14 +14,18 @@ def critic_node(state: PipelineState) -> dict:
     iteration = state.get("iteration_count", 1)
 
     article = state.get("selected_article", {})
-    source_url = article.get("url", "source inconnue")
-    source_name = article.get("source", "source inconnue")
+    source_url = article.get("url", "unknown source")
+    source_name = article.get("source", "unknown source")
+
+    lang_code = state.get("output_language", "en")
+    output_language = OUTPUT_LANGUAGE_LABELS.get(lang_code, "English")
 
     prompt_template = (PROMPTS_DIR / "critic.md").read_text()
     prompt = (prompt_template
               .replace("{draft}", draft)
               .replace("{source_url}", source_url)
-              .replace("{source_name}", source_name))
+              .replace("{source_name}", source_name)
+              .replace("{output_language}", output_language))
 
     approved = False
     feedback = ""
@@ -49,7 +53,7 @@ def critic_node(state: PipelineState) -> dict:
             approved = result.get("approved", score >= APPROVAL_THRESHOLD)
             feedback = "\n".join(corrections) if corrections else "\n".join(issues)
         else:
-            # Si le LLM ne respecte pas le format JSON, on approuve par défaut pour ne pas boucler
+            # If the LLM does not return valid JSON, auto-approve to avoid looping
             print("[CRITIC]  Could not parse JSON response — auto-approving")
             approved = True
 

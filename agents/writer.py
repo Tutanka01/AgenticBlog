@@ -1,5 +1,5 @@
 from state import PipelineState, ACPMessage
-from config import LLM_MODEL, WRITING_STYLE, PROMPTS_DIR
+from config import LLM_MODEL, WRITING_STYLE, PROMPTS_DIR, OUTPUT_LANGUAGE_LABELS
 from llm import llm_client
 
 WRITER_TEMPERATURE = 0.7
@@ -16,17 +16,21 @@ def writer_node(state: PipelineState) -> dict:
     feedback = state.get("critic_feedback", "")
     iteration = state.get("iteration_count", 0) + 1
 
+    lang_code = state.get("output_language", "en")
+    output_language = OUTPUT_LANGUAGE_LABELS.get(lang_code, "English")
+
     prompt_template = (PROMPTS_DIR / "writer.md").read_text()
     article_text = (
-        f"Titre : {article.get('title', '')}\n"
-        f"URL : {article.get('url', '')}\n"
-        f"Contenu complet :\n{article.get('full_content') or article.get('summary', '')}"
+        f"Title: {article.get('title', '')}\n"
+        f"URL: {article.get('url', '')}\n"
+        f"Full content:\n{article.get('full_content') or article.get('summary', '')}"
     )
     memory_ctx = state.get("memory_context", "")
     prompt = (prompt_template
               .replace("{article}", article_text)
-              .replace("{feedback}", feedback if feedback else "Aucun feedback — premier brouillon.")
-              .replace("{memory_context}", memory_ctx if memory_ctx else "Aucun article passé sur ce sujet."))
+              .replace("{feedback}", feedback if feedback else "No feedback — first draft.")
+              .replace("{memory_context}", memory_ctx if memory_ctx else "No previous articles on this topic.")
+              .replace("{output_language}", output_language))
 
     draft = ""
     tokens_used = 0
@@ -44,17 +48,17 @@ def writer_node(state: PipelineState) -> dict:
         tokens_used = response.usage.total_tokens if response.usage else 0
     except Exception as exc:
         print(f"[WRITER]  LLM error: {exc}")
-        draft = f"# {article.get('title', 'Article')}\n\n[Erreur de génération]"
+        draft = f"# {article.get('title', 'Article')}\n\n[Generation error]"
 
     word_count = _count_words(draft)
 
-    # Retry automatique si trop court, uniquement au premier brouillon
+    # Auto-retry if too short, only on first draft
     if word_count < MIN_WORDS and iteration == 1:
         retry_prompt = (
             f"{prompt}\n\n"
-            f"ATTENTION : Ta réponse précédente faisait {word_count} mots. "
-            f"C'est insuffisant. Développe chaque section pour atteindre minimum {MIN_WORDS} mots. "
-            f"Ajoute des exemples concrets, des commandes réelles, des cas d'usage."
+            f"WARNING: Your previous response was {word_count} words. "
+            f"That is too short. Expand each section to reach a minimum of {MIN_WORDS} words. "
+            f"Add concrete examples, real commands, and use cases."
         )
         try:
             print(f"[WRITER]     Draft too short ({word_count} words), retrying...")
@@ -73,7 +77,7 @@ def writer_node(state: PipelineState) -> dict:
                 word_count = _count_words(draft)
                 print(f"[WRITER]     Retry — extended to {word_count} words")
         except Exception:
-            pass  # On garde le draft original si le retry échoue
+            pass  # Keep original draft if retry fails
 
     print(f"[WRITER]     Draft v{iteration} — {word_count} words")
 

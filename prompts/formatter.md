@@ -1,49 +1,56 @@
-Tu reçois un article technique validé. Tu dois produire 3 formats distincts à partir de ce contenu.
+You receive a validated technical article. You must produce 3 distinct formats from this content.
 
-## Article source
+## Source article
 {draft}
 
-## Métadonnées
-- Date : {date}
-- Tags suggérés : {tags}
+## Metadata
+- Date: {date}
+- Suggested tags: {tags}
+
+## Output language
+Write all content in {output_language}.
+
+Note on tags: The `{tags}` placeholder contains pre-computed English keywords derived from the
+category topic list. Include them as-is in the YAML front matter — do not translate them.
+This ensures the editorial memory index (MEMORY.md) remains language-agnostic.
 
 ---
 
-## FORMAT 1 — Article Blog Markdown
+## FORMAT 1 — Blog Markdown article
 
-Génère un article Markdown complet avec :
-- Un front matter YAML en début de fichier :
+Generate a complete Markdown article with:
+- A YAML front matter at the beginning of the file:
 ```yaml
 ---
-title: "Titre de l'article"
+title: "Article title"
 date: {date}
 tags: [tag1, tag2, tag3]
-description: "Une phrase de description pour le SEO (max 160 caractères)"
+description: "A one-sentence SEO description (max 160 characters)"
 author: "Mohamad"
 ---
 ```
-- Puis le corps complet de l'article en Markdown, avec titres `##`, blocs de code avec langage spécifié (```yaml, ```bash, etc.), et mise en forme soignée.
+- Then the complete article body in Markdown, with `##` headings, code blocks with language specified (```yaml, ```bash, etc.), and clean formatting.
 
 ---
 
-## FORMAT 2 — Post LinkedIn
+## FORMAT 2 — LinkedIn post
 
-Règles absolues :
-- Maximum 280 caractères (espaces compris)
-- JAMAIS commencer par le nom de la techno, un titre d'article, ou une affirmation générique
-- Commence par UNE QUESTION DIRECTE ou UN FAIT CHIFFRÉ qui interpelle personnellement l'ingénieur
-- Ton : direct, terrain, pas "corporate". Parle comme un ingénieur à ses pairs, pas comme un communiqué de presse.
-- Exactement 3 hashtags pertinents à la fin
-- Pas de liens, pas de balises Markdown
+Absolute rules:
+- Maximum 280 characters (spaces included)
+- NEVER start with the tech name, an article title, or a generic statement
+- Start with ONE DIRECT QUESTION or ONE SPECIFIC FACT that personally challenges the engineer
+- Tone: direct, field-level, not "corporate". Talk like an engineer to peers, not like a press release.
+- Exactly 3 relevant hashtags at the end
+- No links, no Markdown tags
 
-Formules interdites (ne jamais utiliser) :
+Forbidden formulas (never use):
 - "X ne suffit plus."
 - "La solution ?"
 - "Découvrez pourquoi..."
 - "Dans cet article..."
-- Toute formule qui commence par le nom de la techno
+- Any formula that starts with the tech name
 
-Exemples de BONNES accroches :
+Examples of GOOD hooks:
 ```
 Combien de tes nodes peuvent être rootés en moins de 5 minutes ? Nouvelle série de CVEs dans le noyau Linux, et le patch demande un redémarrage.
 
@@ -57,17 +64,17 @@ J'ai drainé 3 nodes en prod ce matin à cause de 9 CVEs AppArmor. Voici la chec
 
 ---
 
-## FORMAT 3 — Script YouTube Shorts (60–90 secondes)
+## FORMAT 3 — YouTube Shorts script (60–90 seconds)
 
-Structure obligatoire :
-1. **Hook (0–3s)** : une phrase choc, une question provocante, ou un fait surprenant — doit accrocher en 1 seconde
-2. **Problème (3–15s)** : quel problème concret l'audience reconnaît immédiatement ?
-3. **Solution (15–50s)** : explication rapide avec 1 ou 2 exemples visuels ou commandes verbalisées
-4. **CTA (50–60s)** : appel à l'action clair ("Abonne-toi", "Commente si tu utilises X", "Lien en bio")
+Mandatory structure:
+1. **Hook (0–3s)**: a shocking sentence, a provocative question, or a surprising fact — must grab attention in 1 second
+2. **Problem (3–15s)**: what concrete problem does the audience immediately recognize?
+3. **Solution (15–50s)**: quick explanation with 1 or 2 visual examples or verbalized commands
+4. **CTA (50–60s)**: clear call to action ("Abonne-toi", "Commente si tu utilises X", "Lien en bio")
 
-Format de rendu : indique les timecodes entre crochets, le texte dit à voix haute ensuite.
+Rendering format: indicate timecodes in brackets, then the text spoken aloud.
 
-Exemple :
+Example:
 ```
 [0s] Tu perds du temps avec les Ingress Kubernetes ? Il existe mieux.
 [5s] Les Ingress, c'est bien... mais c'est 2019. En prod, on galère avec les annotations propriétaires.
@@ -77,14 +84,14 @@ Exemple :
 
 ---
 
-## Instruction de rendu
-Réponds avec les 3 formats séparés par des marqueurs exactement comme suit :
+## Rendering instruction
+Reply with the 3 formats separated by markers exactly as follows:
 
 ===BLOG===
-[contenu Markdown complet]
+[complete Markdown content]
 
 ===LINKEDIN===
-[texte LinkedIn]
+[LinkedIn text]
 
 ===YOUTUBE===
-[script YouTube]
+[YouTube script]

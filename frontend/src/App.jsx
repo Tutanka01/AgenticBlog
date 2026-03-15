@@ -13,6 +13,7 @@ import { useToast } from './hooks/useToast';
 function AppShell() {
   const [activeView, setActiveView] = useState('pipeline');
   const [category, setCategory] = useState('infra');
+  const [lang, setLang] = useState('en');
   const [streamUrl, setStreamUrl] = useState('');
   const [selectedRunId, setSelectedRunId] = useState('');
   const [runStartedAt, setRunStartedAt] = useState(0);
@@ -95,7 +96,7 @@ function AppShell() {
     const res = await fetch('/api/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category }),
+      body: JSON.stringify({ category, lang }),
     });
 
     if (res.status === 409) {
@@ -111,7 +112,7 @@ function AppShell() {
     const json = await res.json();
     setRunStartedAt(Date.now());
     setStreamUrl(`/api/run/stream?category=${encodeURIComponent(category)}&resume_id=${json.run_id}&t=${Date.now()}`);
-    notify(`Run lance · category: ${category}`, 'success');
+    notify(`Run started · category: ${category} · lang: ${lang}`, 'success');
     setActiveView('pipeline');
   }, [category, isRunning, notify, resetLogs]);
 
@@ -157,6 +158,8 @@ function AppShell() {
         onViewChange={setActiveView}
         category={category}
         onCategoryChange={setCategory}
+        lang={lang}
+        onLangChange={setLang}
         isRunning={isRunning}
         onRunToggle={handleRunToggle}
         topbarData={topbarData}

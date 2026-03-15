@@ -1,107 +1,103 @@
-# Mémoire Éditoriale — Architecture & Fondements Théoriques
+# Editorial Memory — Architecture & Theoretical Foundations
 
-> **Fichiers concernés :** `memory_manager.py`, `state.py`, `agents/selector.py`,
+> **Relevant files:** `memory_manager.py`, `state.py`, `agents/selector.py`,
 > `agents/writer.py`, `agents/output_saver.py`, `prompts/writer.md`
 
 ---
 
-## Résumé
+## Summary
 
-AgenticBlog implémente un système de **mémoire persistante Markdown-First** qui permet
-au pipeline de conserver un historique éditorial entre les runs. Contrairement aux approches
-basées sur des bases vectorielles ou des graphes de connaissances, cette architecture repose
-uniquement sur des fichiers Markdown structurés — directement lisibles et modifiables par
-l'agent ou un humain, sans infrastructure supplémentaire.
+AgenticBlog implements a **Markdown-First persistent memory** system that allows the pipeline
+to maintain an editorial history across runs. Unlike approaches based on vector databases or
+knowledge graphs, this architecture relies exclusively on structured Markdown files — directly
+readable and editable by the agent or a human, with no additional infrastructure.
 
-Concrètement, trois comportements émergent :
+Concretely, three behaviors emerge:
 
-1. **Le selector** applique une pénalité de nouveauté aux articles trop proches de sujets
-   récemment couverts (fenêtre de 14 jours), favorisant la diversité éditoriale.
-2. **Le writer** reçoit un contexte des articles passés pertinents, lui permettant de créer
-   de la continuité narrative ("Dans mon article sur X, j'avais expliqué Y...").
-3. **Le writer** reçoit les leçons critiques des runs précédents ayant demandé ≥ 2 itérations
-   critic — les erreurs éditoriales passées sont mémorisées et injectées avant chaque rédaction.
-
----
-
-## 1. Problème : l'amnésie des pipelines IA
-
-Un pipeline multi-agents sans mémoire persistante est, par construction, **amnésique** :
-chaque run repart de zéro, ignore tout ce qui a été produit avant lui, et ne peut donc ni
-éviter la répétition ni créer de continuité éditoriale.
-
-Ce problème est fondamental dans les systèmes IA multi-sessions. Il a été formalisé dans
-plusieurs travaux récents :
-
-- Sumers et al. (2023) identifient la mémoire comme une des quatre composantes cognitives
-  essentielles d'un agent LLM, aux côtés du raisonnement, de l'action et de la planification.
-  Sans mémoire persistante, un agent ne peut exhiber aucun comportement cohérent sur le long
-  terme \[1\].
-- Park et al. (2023) montrent que les agents simulés sans mémoire à long terme voient leur
-  comportement se dégrader rapidement en incohérences : ils répètent les mêmes actions, font
-  les mêmes erreurs, et ne tirent aucune leçon de leurs interactions passées \[2\].
-- Packer et al. (2023) quantifient le coût de l'amnésie dans les LLM : sans gestion explicite
-  du contexte, un agent perd l'accès à l'historique dès que la fenêtre de contexte est pleine,
-  ce qui force des comportements sous-optimaux ou incohérents \[3\].
-
-Dans le cadre éditorial d'AgenticBlog, l'amnésie se traduit par trois problèmes concrets :
-
-| Problème | Symptôme observé |
-|----------|-----------------|
-| Répétition thématique | Deux runs successifs sur le même sujet Kubernetes |
-| Pas de continuité narrative | Le writer ne peut pas référencer ses propres articles |
-| Dérive éditoriale | Aucun signal sur ce qui a "bien marché" (score critique) |
+1. **The selector** applies a novelty penalty to articles that are too close to recently covered
+   topics (14-day window), promoting editorial diversity.
+2. **The writer** receives context from relevant past articles, enabling narrative continuity
+   ("In my article on X, I had explained Y...").
+3. **The writer** receives critical lessons from previous runs that required ≥ 2 critic
+   iterations — past editorial mistakes are memorized and injected before each draft.
 
 ---
 
-## 2. Revue de littérature
+## 1. Problem: AI Pipeline Amnesia
 
-### 2.1 Taxonomie des mémoires IA — CoALA (Sumers et al., 2023)
+A multi-agent pipeline without persistent memory is, by construction, **amnesiac**:
+each run starts from scratch, ignores everything produced before it, and therefore cannot
+avoid repetition or create editorial continuity.
 
-Le papier *Cognitive Architectures for Language Agents* \[1\] propose une taxonomie en quatre
-types de mémoire pour les agents LLM, calquée sur les sciences cognitives :
+This problem is fundamental in multi-session AI systems. It has been formalized in several
+recent papers:
 
-| Type | Définition | Équivalent AgenticBlog |
+- Sumers et al. (2023) identify memory as one of the four essential cognitive components
+  of an LLM agent, alongside reasoning, action, and planning. Without persistent memory,
+  an agent cannot exhibit any coherent long-term behavior \[1\].
+- Park et al. (2023) show that simulated agents without long-term memory see their behavior
+  rapidly degrade into inconsistencies: they repeat the same actions, make the same mistakes,
+  and learn nothing from their past interactions \[2\].
+- Packer et al. (2023) quantify the cost of amnesia in LLMs: without explicit context
+  management, an agent loses access to history once the context window is full, forcing
+  suboptimal or incoherent behaviors \[3\].
+
+In the editorial context of AgenticBlog, amnesia manifests as three concrete problems:
+
+| Problem | Observed symptom |
+|---------|-----------------|
+| Thematic repetition | Two successive runs on the same Kubernetes topic |
+| No narrative continuity | The writer cannot reference its own articles |
+| Editorial drift | No signal on what "worked well" (critic score) |
+
+---
+
+## 2. Literature Review
+
+### 2.1 AI Memory Taxonomy — CoALA (Sumers et al., 2023)
+
+The paper *Cognitive Architectures for Language Agents* \[1\] proposes a four-type memory
+taxonomy for LLM agents, modeled on cognitive science:
+
+| Type | Definition | AgenticBlog equivalent |
 |------|-----------|----------------------|
-| **Sémantique** | Faits généraux sur le monde | Implicite dans les poids du LLM |
-| **Épisodique** | Événements passés spécifiques | `MEMORY.md` — runs et articles produits |
-| **Procédurale** | Savoir-faire, méthodes | Prompts dans `prompts/` |
-| **En cours de travail** (*working*) | Contexte actif | `PipelineState` — effacé entre runs |
+| **Semantic** | General facts about the world | Implicit in LLM weights |
+| **Episodic** | Specific past events | `MEMORY.md` — runs and produced articles |
+| **Procedural** | Know-how, methods | Prompts in `prompts/` |
+| **Working** | Active context | `PipelineState` — cleared between runs |
 
-Notre implémentation cible principalement la **mémoire épisodique** : elle enregistre quand,
-sur quel sujet et avec quel score chaque run a produit du contenu. Elle l'injecte ensuite dans
-la mémoire de travail du writer via `state["memory_context"]`.
+Our implementation primarily targets **episodic memory**: it records when, on what topic,
+and with what score each run produced content. It then injects it into the writer's working
+memory via `state["memory_context"]`.
 
-### 2.2 Hiérarchie des mémoires — MemGPT (Packer et al., 2023)
+### 2.2 Memory Hierarchy — MemGPT (Packer et al., 2023)
 
-MemGPT \[3\] propose un OS-like pour les LLM : une hiérarchie de mémoires (main context,
-external storage, recall storage) avec des fonctions d'écriture/lecture explicites que
-l'agent appelle lui-même. L'agent décide quand consolider ses observations en mémoire
-longue durée.
+MemGPT \[3\] proposes an OS-like architecture for LLMs: a memory hierarchy (main context,
+external storage, recall storage) with explicit read/write functions that the agent calls
+itself. The agent decides when to consolidate its observations into long-term memory.
 
-Notre approche en diffère sur un point crucial : **la décision de mémoriser n'est pas
-déléguée au LLM** — elle est systématique et automatique (après chaque run réussi).
-Ce choix évite la variabilité inhérente aux décisions LLM et garantit une couverture
-complète de l'historique. La contrepartie est une moindre sélectivité : tout run est
-mémorisé, y compris les mauvais.
+Our approach differs on one crucial point: **the decision to memorize is not delegated to
+the LLM** — it is systematic and automatic (after each successful run). This choice avoids
+the inherent variability of LLM decisions and guarantees complete history coverage. The
+trade-off is lower selectivity: every run is memorized, including poor ones.
 
-### 2.3 Flux de mémoire — Generative Agents (Park et al., 2023)
+### 2.3 Memory Stream — Generative Agents (Park et al., 2023)
 
-Park et al. \[2\] introduisent le concept de **memory stream** : un journal chronologique
-d'observations annotées avec leur importance, leur récence et leur pertinence contextuelle.
-Trois opérations fondamentales sont définies :
+Park et al. \[2\] introduce the concept of a **memory stream**: a chronological journal of
+observations annotated with their importance, recency, and contextual relevance.
+Three fundamental operations are defined:
 
-1. **Stockage** (*storage*) — ajout d'observations au flux
-2. **Récupération** (*retrieval*) — recherche par pertinence combinant score d'importance,
-   récence, et similarité avec la requête courante
-3. **Réflexion** (*reflection*) — synthèse de haut niveau à partir des observations brutes
+1. **Storage** — adding observations to the stream
+2. **Retrieval** — relevance search combining importance score, recency, and similarity
+   with the current query
+3. **Reflection** — high-level synthesis from raw observations
 
-AgenticBlog implémente une version simplifiée de ce modèle :
-- Stockage : `update_memory()` dans `memory_manager.py` (appelé par `output_saver`)
-- Récupération : `load_memory_index()` + `build_writer_context()` (chevauchement de mots-clés)
-- Réflexion : non implémentée en Phase 1, prévue en Phase 3 (résumés périodiques par LLM)
+AgenticBlog implements a simplified version of this model:
+- Storage: `update_memory()` in `memory_manager.py` (called by `output_saver`)
+- Retrieval: `load_memory_index()` + `build_writer_context()` (keyword overlap)
+- Reflection: not implemented in Phase 1, planned for Phase 3 (periodic LLM summaries)
 
-Le score de récupération de Park et al. est défini comme :
+Park et al.'s retrieval score is defined as:
 
 ```
 score(memory, query) = α × recency(memory)
@@ -109,340 +105,336 @@ score(memory, query) = α × recency(memory)
                      + γ × relevance(memory, query)
 ```
 
-Notre heuristique de récupération utilise exclusivement `relevance` (chevauchement
-Jaccard sur les mots-clés) et `recency` (fenêtre de 14 jours). `importance` est
-approximé par le score de critique (`score` dans MEMORY.md), mais n'est pas encore
-pondéré dans le ranking — c'est une amélioration directe identifiée pour la Phase 2.
+Our retrieval heuristic uses exclusively `relevance` (Jaccard overlap on keywords) and
+`recency` (14-day window). `importance` is approximated by the critic score (`score` in
+MEMORY.md), but is not yet weighted in the ranking — this is a direct improvement
+identified for Phase 2.
 
-### 2.4 Mémoire textuelle et long terme — Voyager (Wang et al., 2023)
+### 2.4 Textual Long-Term Memory — Voyager (Wang et al., 2023)
 
-Voyager \[4\] est un agent Minecraft qui accumule une **skill library** textuelle : chaque
-compétence apprise est stockée sous forme de code JavaScript commenté, récupérable par
-similarité vectorielle lors de nouvelles tâches. L'aspect clé est que la mémoire est
-**directement exécutable** (le code stocké peut être relu et relancé).
+Voyager \[4\] is a Minecraft agent that accumulates a textual **skill library**: each
+learned skill is stored as commented JavaScript code, retrievable by vector similarity
+for new tasks. The key aspect is that memory is **directly executable** (the stored code
+can be re-read and re-run).
 
-Bien que notre domaine soit différent, le principe est identique : les articles Markdown
-stockés dans `memory/topics/*.md` sont **directement lisibles par le LLM** sans couche
-d'embedding ou de vectorisation. C'est ce que le mouvement Markdown-First Memory
-désigne comme "human-readable, LLM-native storage" — la même représentation sert
-à la fois aux humains pour auditer et au modèle pour raisonner \[7\].
+Although our domain differs, the principle is identical: the Markdown articles stored in
+`memory/topics/*.md` are **directly readable by the LLM** without any embedding or
+vectorization layer. This is what the Markdown-First Memory movement calls "human-readable,
+LLM-native storage" — the same representation serves both humans for auditing and the
+model for reasoning \[7\].
 
-### 2.5 Réflexion verbale — Reflexion (Shinn et al., 2023)
+### 2.5 Verbal Reflection — Reflexion (Shinn et al., 2023)
 
-Reflexion \[5\] montre qu'un LLM peut améliorer ses performances en maintenant un
-**registre verbal de ses propres erreurs** — une mémoire de ce qui n'a pas fonctionné.
-L'agent consulte ce registre avant chaque nouvelle tentative.
+Reflexion \[5\] shows that an LLM can improve its performance by maintaining a **verbal
+record of its own mistakes** — a memory of what didn't work. The agent consults this record
+before each new attempt.
 
-Dans AgenticBlog, le score de critique (`score` dans `run_metadata.json` et MEMORY.md)
-joue ce rôle, mais de façon passive : il est mémorisé mais pas encore utilisé pour
-ajuster le comportement du writer. Une implémentation future pourrait injecter dans le
-prompt writer : *"Les articles notés < 7 traitaient souvent de X de façon trop superficielle."*
+In AgenticBlog, the critic score (`score` in `run_metadata.json` and MEMORY.md) plays this
+role, but passively: it is memorized but not yet used to adjust writer behavior. A future
+implementation could inject into the writer prompt: *"Articles scored < 7 often treated X
+too superficially."*
 
-### 2.6 Le pattern Markdown-First Memory (2025)
+### 2.6 The Markdown-First Memory Pattern (2025)
 
-Le pattern Markdown-First Memory a été observé et formalisé de façon indépendante dans
-plusieurs systèmes agents récents \[7, 8\] :
+The Markdown-First Memory pattern has been independently observed and formalized in
+several recent agent systems \[7, 8\]:
 
-- **Claude Code** (Anthropic, 2025) utilise des fichiers Markdown pour la mémoire
-  persistante de l'agent de codage, organisés par type (user, feedback, project, reference).
-- **Manus AI** (2025) documente son système de mémoire basé sur des fichiers texte
-  structurés, sans base vectorielle.
-- Les recherches sur **A-MEM** (Agentic Memory, 2025) \[7\] et **AgeMem** (2025) \[8\]
-  valident empiriquement que pour des agents à mémoire longue durée, les fichiers texte
-  indexés manuellement (*manual indexing*) surpassent les approches vectorielles denses
-  en termes de précision de récupération pour des requêtes thématiques — à condition que
-  le schéma de structuration soit suffisamment riche (dates, catégories, mots-clés).
+- **Claude Code** (Anthropic, 2025) uses Markdown files for persistent agent memory,
+  organized by type (user, feedback, project, reference).
+- **Manus AI** (2025) documents its memory system based on structured text files,
+  without a vector database.
+- Research on **A-MEM** (Agentic Memory, 2025) \[7\] and **AgeMem** (2025) \[8\]
+  empirically validates that for long-term memory agents, manually indexed text files
+  outperform dense vector approaches in retrieval precision for thematic queries —
+  provided the structuring schema is sufficiently rich (dates, categories, keywords).
 
-La justification principale est que les LLM sont nativement entraînés sur du texte structuré
-(Markdown, JSON, YAML). La proximité de représentation entre la mémoire stockée et le format
-d'entraînement réduit le coût de "traduction" lors de la récupération, comparé à une
-décompression depuis un espace vectoriel \[1, 7\].
+The main justification is that LLMs are natively trained on structured text (Markdown,
+JSON, YAML). The representational proximity between stored memory and the training format
+reduces the "translation" cost at retrieval time, compared to decompressing from a vector
+space \[1, 7\].
 
 ---
 
-## 3. Architecture : Markdown-First Memory
+## 3. Architecture: Markdown-First Memory
 
-### 3.1 Choix de conception — pourquoi pas de vector DB ?
+### 3.1 Design Choices — Why No Vector DB?
 
-| Critère | Vector DB (ex: Chroma, Qdrant) | Markdown-First |
-|---------|-------------------------------|---------------|
-| Infrastructure | Serveur à déployer | Aucune |
-| Lisibilité | Opaque (vecteurs) | Directe (texte) |
-| Débogage | Difficile | `cat memory/MEMORY.md` |
-| Précision sur requêtes thématiques | Bonne sur sémantique | Bonne sur catégories/topics curatés |
-| Coût d'embedding | API calls | Zéro |
-| Portabilité | Dépend du provider | Simple copie de fichiers |
-| Limite de scale | ~50 articles sans index | ~200 articles avant que BM25 apporte un gain de qualité notable |
+| Criterion | Vector DB (e.g., Chroma, Qdrant) | Markdown-First |
+|-----------|----------------------------------|---------------|
+| Infrastructure | Server to deploy | None |
+| Readability | Opaque (vectors) | Direct (text) |
+| Debugging | Difficult | `cat memory/MEMORY.md` |
+| Precision on thematic queries | Good on semantics | Good on curated categories/topics |
+| Embedding cost | API calls | Zero |
+| Portability | Depends on provider | Simple file copy |
+| Scale limit | ~50 articles without index | ~200 articles before BM25 yields a notable quality gain |
 
-Pour AgenticBlog en Phase 1 (< 50 articles), le choix Markdown-First est justifié.
-À partir de 50 articles, l'ajout de `rank_bm25` (Phase 2) permet de maintenir cette
-architecture tout en gagnant en précision de récupération \[9\].
+For AgenticBlog in Phase 1 (< 50 articles), the Markdown-First choice is justified.
+Beyond 50 articles, adding `rank_bm25` (Phase 2) allows maintaining this architecture
+while gaining retrieval precision \[9\].
 
-### 3.2 Structure des fichiers
+### 3.2 File Structure
 
 ```
 memory/
-├── MEMORY.md              ← Index des 60 derniers runs
-├── topics/                ← Experience Bank (articles produits)
-│   ├── infra.md           ← Détail des articles par catégorie
+├── MEMORY.md              ← Index of the last 60 runs
+├── topics/                ← Experience Bank (produced articles)
+│   ├── infra.md           ← Article details by category
 │   ├── security.md
 │   ├── ai.md
 │   ├── cloud.md
 │   └── africa.md
-├── lessons/               ← Meta-Guideline Bank (leçons éditoriales)
+├── lessons/               ← Meta-Guideline Bank (editorial lessons)
 │   ├── infra.md
 │   ├── ai.md
 │   └── ...
-├── archive/               ← Overflow > 60 entrées dans MEMORY.md
+├── archive/               ← Overflow > 60 entries in MEMORY.md
 │   └── 2026-03-15.md
-└── checkpoints.sqlite     ← Existant, géré par LangGraph
+└── checkpoints.sqlite     ← Existing, managed by LangGraph
 ```
 
-### 3.3 Format MEMORY.md
+### 3.3 MEMORY.md Format
 
 ```markdown
-# AgenticBlog — Mémoire Éditoriale
+# AgenticBlog — Editorial Memory
 
-## Runs récents
+## Recent runs
 
-| Date       | Titre                          | Catégorie | Score | Mots-clés                     |
+| Date       | Title                          | Category  | Score | Keywords                      |
 |------------|--------------------------------|-----------|-------|-------------------------------|
 | 2026-03-10 | Kubernetes Gateway API         | infra     | 8.2   | kubernetes,gateway,networking |
 | 2026-03-07 | OpenAI o3 reasoning benchmarks | ai        | 7.9   | openai,llm,benchmark,o3       |
 
-## Sujets récemment couverts (éviter dans les 14 prochains jours)
-- infra: 2 article(s) (dernier: 2026-03-10)
-- ai: 1 article(s) (dernier: 2026-03-07)
+## Topics recently covered (avoid for the next 14 days)
+- infra: 2 article(s) (last: 2026-03-10)
+- ai: 1 article(s) (last: 2026-03-07)
 ```
 
-Le tableau est trié du plus récent au plus ancien (prepend à chaque run). La section
-"Sujets récemment couverts" est recalculée automatiquement après chaque run.
+The table is sorted newest-first (prepend on each run). The "Topics recently covered"
+section is recalculated automatically after each run.
 
 ### 3.4 Format memory/topics/{category}.md
 
 ```markdown
-# Infra — Articles couverts
+# Infra — Articles covered
 
 ## 2026-03-10 — Kubernetes Gateway API
 - Angle: migration Ingress → Gateway API v1.0
-- Score: 8.2 | Itérations critique: 2
-- Mots-clés: gateway,kubernetes,networking
-- Lien: output/2026-03-10/abcd1234/blog_post.md
+- Score: 8.2 | Critique iterations: 2
+- Keywords: gateway,kubernetes,networking
+- Path: output/2026-03-10/abcd1234/blog_post.md
 ```
 
-Ce fichier est la source de référence pour le contexte injecté dans le writer.
-Il est conçu pour être directement lisible par un LLM sans transformation.
+This file is the reference source for the context injected into the writer.
+It is designed to be directly readable by an LLM without transformation.
 
 ---
 
-## 4. Implémentation détaillée
+## 4. Detailed Implementation
 
-### 4.1 `memory_manager.py` — module central
+### 4.1 `memory_manager.py` — Core Module
 
-Le module expose 4 fonctions publiques et n'a aucune dépendance externe :
+The module exposes 4 public functions and has no external dependencies:
 
 #### `load_memory_index() → list[dict]`
 
-Parse `memory/MEMORY.md` ligne par ligne. Extrait les lignes du tableau Markdown via un
-pattern `|`-délimité. Retourne une liste de dicts `{date, title, category, keywords, score}`.
+Parses `memory/MEMORY.md` line by line. Extracts Markdown table rows via a `|`-delimited
+pattern. Returns a list of dicts `{date, title, category, keywords, score}`.
 
-Initialise automatiquement la structure mémoire au premier appel (création des répertoires
-et de `MEMORY.md` vide) — le pipeline n'a pas à gérer les cas "mémoire absente".
+Automatically initializes the memory structure on first call (creates directories and
+an empty `MEMORY.md`) — the pipeline does not need to handle "memory absent" cases.
 
 #### `get_novelty_penalty(article, recent_runs) → float`
 
-Calcule la pénalité de nouveauté d'un article en fonction de son chevauchement thématique
-avec les runs des 14 derniers jours. L'algorithme est inspiré du critère **MMR (Maximal
-Marginal Relevance)** de Carbonell & Goldstein (1998) \[6\], qui formule explicitement
-le trade-off pertinence/diversité dans les systèmes de récupération d'information :
+Calculates the novelty penalty for an article based on its thematic overlap with runs
+from the last 14 days. The algorithm is inspired by the **MMR (Maximal Marginal Relevance)**
+criterion from Carbonell & Goldstein (1998) \[6\], which explicitly formulates the
+relevance/diversity trade-off in information retrieval systems:
 
 ```
 MMR = λ × Sim(di, query) - (1-λ) × max_j∈S Sim(di, dj)
 ```
 
-Notre pénalité est une approximation discrète de ce critère :
+Our penalty is a discrete approximation of this criterion:
 
 ```python
 def get_novelty_penalty(article, recent_runs) -> float:
-    # Source primaire : topics de la catégorie présents dans le contenu de l'article
+    # Primary source: category topics present in the article content
     article_kw = set(_keywords_from_category(category, title, summary))
 
-    for run in recent_runs:  # filtrés sur 14 jours
-        run_kw = set(run["keywords"])   # déjà extraits au moment du stockage
-        overlap = |article_kw ∩ run_kw| / |article_kw ∪ run_kw|   # similarité de Jaccard
+    for run in recent_runs:  # filtered to 14-day window
+        run_kw = set(run["keywords"])   # already extracted at storage time
+        overlap = |article_kw ∩ run_kw| / |article_kw ∪ run_kw|   # Jaccard similarity
 
-        if overlap > 0.60 → penalty = 2.0  # même sujet exact
-        if overlap > 0.30 → penalty = 1.5  # thème proche
+        if overlap > 0.60 → penalty = 2.0  # exact same topic
+        if overlap > 0.30 → penalty = 1.5  # related theme
 ```
 
-La similarité de Jaccard est choisie pour sa robustesse avec des ensembles de petite taille
-(4–8 mots-clés), contrairement à la similarité cosinus qui requiert des vecteurs normalisés
-de dimension fixe \[9\]. Les keywords stockés dans MEMORY.md sont réutilisés directement
-(`set(run["keywords"])`) — aucune ré-extraction au moment de la comparaison.
+Jaccard similarity is chosen for its robustness with small sets (4–8 keywords), unlike
+cosine similarity which requires fixed-dimension normalized vectors \[9\]. Keywords stored
+in MEMORY.md are reused directly (`set(run["keywords"])`) — no re-extraction at comparison time.
 
 #### `build_writer_context(selected, recent_runs) → str`
 
-Sélectionne les runs les plus pertinents (même catégorie OU chevauchement > 15%) et
-construit un bloc Markdown injecté dans le prompt writer via `{memory_context}` :
+Selects the most relevant runs (same category OR overlap > 15%) and builds a Markdown
+block injected into the writer prompt via `{memory_context}`:
 
 ```markdown
-### Articles passés sur ce sujet
+### Previous articles on this topic
 
-- **2026-03-10** — Kubernetes Gateway API _(catégorie: infra, score: 8.2)_
-- **2026-02-28** — Cilium eBPF deep-dive _(catégorie: infra, score: 7.5)_
+- **2026-03-10** — Kubernetes Gateway API _(category: infra, score: 8.2)_
+- **2026-02-28** — Cilium eBPF deep-dive _(category: infra, score: 7.5)_
 ```
 
-Maximum 3 entrées (les plus pertinentes par chevauchement Jaccard), pour éviter de
-surcharger le contexte du writer.
+Maximum 3 entries (the most relevant by Jaccard overlap), to avoid overloading the
+writer's context.
 
 #### `update_memory(state) → None`
 
-Exécution en fin de pipeline, dans `output_saver`. Trois opérations :
+Executes at end of pipeline, in `output_saver`. Three operations:
 
-1. **Prepend** d'une ligne dans le tableau `MEMORY.md`
-2. **Archivage** si > 60 entrées (FIFO vers `memory/archive/YYYY-MM-DD.md`)
-3. **Upsert** dans `memory/topics/{category}.md`
+1. **Prepend** a row to the `MEMORY.md` table
+2. **Archive** if > 60 entries (FIFO to `memory/archive/YYYY-MM-DD.md`)
+3. **Upsert** into `memory/topics/{category}.md`
 
-Non-bloquant : une exception dans `update_memory` est capturée et loguée, sans faire
-échouer le pipeline.
+Non-blocking: an exception in `update_memory` is caught and logged, without failing the pipeline.
 
 ### 4.2 Meta-Guideline Bank (Strategy-based Experiential Memory)
 
-Inspirée du pattern **dual-bank** de Live-Evo \[11\] et de la **Trajectory-Informed Memory** d'IBM Research \[13\],
-cette couche mémorise non pas *ce qui s'est passé* (Experience Bank = `topics/`) mais
-*pourquoi une rédaction a échoué* (Meta-Guideline Bank = `lessons/`).
+Inspired by the **dual-bank** pattern from Live-Evo \[11\] and the **Trajectory-Informed
+Memory** from IBM Research \[13\], this layer memorizes not *what happened* (Experience
+Bank = `topics/`) but *why a draft failed* (Meta-Guideline Bank = `lessons/`).
 
-**Déclencheur :** tout run avec `iteration_count >= 2` (au moins un rejet du critic).
+**Trigger:** any run with `iteration_count >= 2` (at least one critic rejection).
 
-**Format `memory/lessons/{category}.md` :**
+**Format `memory/lessons/{category}.md`:**
 
 ```markdown
-# Ai — Leçons apprises
+# Ai — Lessons learned
 
-## 2026-03-15 | itérations: 3 | score: 7.2 | poids: 1.00
+## 2026-03-15 | iterations: 3 | score: 7.2 | weight: 1.00
 - Article: GGML and llama.cpp join HF...
-- Critique: ton trop formel dans l'introduction; manque d'exemples CLI concrets
+- Critique: tone too formal in the introduction; lacks concrete CLI examples
 
-## 2026-03-10 | itérations: 2 | score: 7.8 | poids: 0.85
+## 2026-03-10 | iterations: 2 | score: 7.8 | weight: 0.85
 - Article: OpenAI o3 benchmarks...
-- Critique: structure trop linéaire, accroche trop neutre
+- Critique: structure too linear, hook too neutral
 ```
 
-**Decay usage-based (pas time-based) :** à chaque run sur la même catégorie, tous les poids
-sont multipliés par `LESSON_DECAY_FACTOR = 0.85`. Après ~17 runs sur la même catégorie,
-une leçon descend sous `LESSON_PURGE_THRESHOLD = 0.1` et est purgée automatiquement.
-Ce choix reflète la recommandation de MemRL \[12\] : pondérer les mémoires par utilité
-observée, pas par ancienneté calendaire.
+**Usage-based decay (not time-based):** on each run in the same category, all weights are
+multiplied by `LESSON_DECAY_FACTOR = 0.85`. After ~17 runs in the same category, a lesson
+drops below `LESSON_PURGE_THRESHOLD = 0.1` and is automatically purged. This choice reflects
+the MemRL \[12\] recommendation: weight memories by observed utility, not calendar age.
 
-**Injection dans le writer :** `load_lessons(category)` retourne les 5 leçons les plus
-pondérées, formatées en bloc Markdown et ajoutées à la suite du contexte mémoire existant :
+**Injection into the writer:** `load_lessons(category)` returns the 5 highest-weighted
+lessons, formatted as a Markdown block and appended to the existing memory context:
 
 ```markdown
-### Leçons critiques — à appliquer obligatoirement
-- [haute priorité] ton trop formel dans l'introduction; manque d'exemples CLI concrets
-- [priorité normale] structure trop linéaire, accroche trop neutre
+### Critical lessons — apply without exception
+- [high priority] tone too formal in the introduction; lacks concrete CLI examples
+- [normal priority] structure too linear, hook too neutral
 ```
 
-Seuil haute priorité : poids > 0.6 (leçon récente, < 3 runs depuis la mémorisation).
+High priority threshold: weight > 0.6 (recent lesson, < 3 runs since memorization).
 
-**Pas de nouveau placeholder dans `prompts/writer.md` :** les leçons sont ajoutées comme
-section supplémentaire dans le string retourné par `build_writer_context()`, via le
-placeholder existant `{memory_context}`. Zéro rupture d'interface.
+**No new placeholder in `prompts/writer.md`:** lessons are added as an additional section
+in the string returned by `build_writer_context()`, via the existing `{memory_context}`
+placeholder. Zero interface breakage.
 
-### 4.3 Intégration dans `selector_node`
+### 4.3 Integration in `selector_node`
 
 ```
-score_composite = score_llm + freshness_bonus - novelty_penalty
+composite_score = llm_score + freshness_bonus - novelty_penalty
                   [0–10]       [0–1]              [0–2]
 ```
 
-Le score composite résultant reste dans une plage effective de -1 à 11. La pénalité
-maximale de 2.0 ne peut donc pas exclure un article à score LLM très élevé — elle le
-pénalise, mais ne l'élimine pas. C'est un choix délibéré : si le seul article pertinent
-du jour est sur un sujet récemment couvert, il vaut mieux le couvrir à nouveau que de
-choisir un article hors-sujet.
+The resulting composite score stays in an effective range of -1 to 11. The maximum penalty
+of 2.0 therefore cannot exclude a very high LLM-scored article — it penalizes it, but does
+not eliminate it. This is a deliberate choice: if the only relevant article of the day is
+on a recently covered topic, it is better to cover it again than to pick an off-topic article.
 
-Log émis :
+Log output:
 
 ```
-[SELECTOR]   Selected: "Cilium 1.15 : eBPF sans kube-proxy"
+[SELECTOR]   Selected: "Cilium 1.15: eBPF without kube-proxy"
              Score: 8.5/10 + freshness: 0.72 - novelty penalty: 0.0
-             Memory: 7 runs chargés
+             Memory: 7 runs loaded
 ```
 
-### 4.4 Intégration dans `writer_node`
+### 4.4 Integration in `writer_node`
 
-Le prompt `writer.md` reçoit maintenant trois variables :
+The `writer.md` prompt now receives three variables:
 
-| Variable | Source | Valeur si absente |
-|----------|--------|-------------------|
+| Variable | Source | Value if absent |
+|----------|--------|-----------------|
 | `{article}` | `state["selected_article"]` | — |
-| `{feedback}` | `state["critic_feedback"]` | "Aucun feedback — premier brouillon." |
-| `{memory_context}` | `state["memory_context"]` | "Aucun article passé sur ce sujet." |
+| `{feedback}` | `state["critic_feedback"]` | "No feedback — first draft." |
+| `{memory_context}` | `state["memory_context"]` | "No previous articles on this topic." |
 
-L'instruction dans le prompt est volontairement non-contraignante :
-> *"Si un article passé est pertinent, tu peux créer de la continuité éditoriale.
-> Ne force pas la référence si elle n'apporte rien."*
+The instruction in the prompt is intentionally non-prescriptive:
+> *"If a past article is relevant, you may create editorial continuity.
+> Do not force the reference if it adds nothing."*
 
-Ce choix suit la recommandation de Park et al. \[2\] : les agents qui forcent mécaniquement
-l'utilisation de leur mémoire produisent des références artificielles qui dégradent
-la qualité perçue du contenu.
-
----
-
-## 5. Décisions de conception et trade-offs
-
-### Pourquoi du prepend plutôt que de l'append dans MEMORY.md ?
-
-Le prepend place les entrées les plus récentes en tête du tableau. Si un LLM doit lire
-MEMORY.md directement (cas futur), il lira les données les plus récentes en premier,
-ce qui est optimal étant donné que la fenêtre de contexte a une longueur limitée et
-que les entrées récentes sont plus pertinentes que les anciennes.
-
-### Pourquoi une limite à 60 entrées dans MEMORY.md ?
-
-Le fichier MEMORY.md est conçu pour être chargé entièrement en mémoire de travail
-(`load_memory_index` lit tout le fichier). À 60 entrées × ~100 octets par ligne,
-cela représente ~6 Ko — négligeable. Au-delà, le ratio signal/bruit décroît : des
-articles vieux de plusieurs mois sont peu pertinents pour la pénalité de nouveauté
-(fenêtre 14 jours) et créent du bruit dans le contexte writer.
-
-### Pourquoi la fenêtre de nouveauté est de 14 jours ?
-
-14 jours est un compromis entre :
-- **Trop court (< 7 jours)** : ne protège pas suffisamment contre la répétition si
-  le pipeline est lancé quotidiennement
-- **Trop long (> 30 jours)** : le pipeline se censure sur des sujets qui ont évolué
-  (une nouvelle version Kubernetes peut justifier un second article après 3 semaines)
-
-Ce paramètre est hardcodé dans `memory_manager.py` (`NOVELTY_WINDOW_DAYS = 14`) mais
-peut être externalisé en variable d'environnement si nécessaire.
-
-### Pourquoi les topics de la catégorie comme source primaire de mots-clés ?
-
-L'extraction naïve par regex sur le blog post génère du bruit : le texte rédigé est en
-français, et des mots comme "mort" (de "Cloud-first est mort"), "clic" (de "single-click")
-ou "rend" (de "qui rend l'inférence possible") passent n'importe quel filtre de stopwords
-raisonnable. Ce bug a été observé dès le premier run réel.
-
-La solution est d'utiliser `config.CATEGORIES[category]["topics"]` comme vocabulaire
-contrôlé : les topics sont déjà curatés, techniques, en anglais, et directement
-comparables d'un run à l'autre. L'algorithme `_keywords_from_category` cherche simplement
-si chaque topic apparaît dans le contenu de l'article source (titre EN + contenu fetché),
-puis complète avec des mots longs du titre en fallback si moins de 4 topics sont trouvés.
-
-Trois avantages par rapport au regex bag-of-words :
-1. **Vocabulaire contrôlé** : uniquement des termes techniques pertinents pour la catégorie.
-2. **Langue cohérente** : les topics sont en anglais, comme le titre de l'article source RSS — pas de pollution par la prose française du blog post.
-3. **Comparabilité** : deux articles sur `llama.cpp` auront `llama.cpp` dans leurs keywords quelles que soient les formulations du writer.
-
-La nuance sémantique fine (distinguer deux articles llama.cpp avec des angles différents —
-benchmarks vs. intégration HuggingFace) reste un angle mort en Phase 1 et sera adressée
-via BM25 \[9\] en Phase 2.
+This choice follows the recommendation of Park et al. \[2\]: agents that mechanically force
+the use of their memory produce artificial references that degrade the perceived content quality.
 
 ---
 
-## 6. Flux de données complet
+## 5. Design Decisions and Trade-offs
+
+### Why prepend rather than append in MEMORY.md?
+
+Prepend places the most recent entries at the top of the table. If an LLM must read
+MEMORY.md directly (future use case), it will read the most recent data first, which is
+optimal given that the context window has a limited length and recent entries are more
+relevant than old ones.
+
+### Why a limit of 60 entries in MEMORY.md?
+
+The MEMORY.md file is designed to be loaded entirely into working memory
+(`load_memory_index` reads the whole file). At 60 entries × ~100 bytes per line, this
+represents ~6 KB — negligible. Beyond that, the signal/noise ratio decreases: articles
+several months old are barely relevant for the novelty penalty (14-day window) and create
+noise in the writer context.
+
+### Why is the novelty window 14 days?
+
+14 days is a compromise between:
+- **Too short (< 7 days)**: does not sufficiently protect against repetition if the pipeline
+  runs daily
+- **Too long (> 30 days)**: the pipeline self-censors on topics that have evolved (a new
+  Kubernetes release may justify a second article after 3 weeks)
+
+This parameter is hardcoded in `memory_manager.py` (`NOVELTY_WINDOW_DAYS = 14`) but can
+be externalized to an environment variable if needed.
+
+### Why use category topics as the primary keyword source?
+
+Naive regex extraction on the blog post generates noise: the drafted text may produce words
+like "dead" (from "Cloud-first is dead"), "click" (from "single-click"), or "makes" (from
+"that makes inference possible") that pass any reasonable stopword filter. This bug was
+observed on the very first real run.
+
+The solution is to use `config.CATEGORIES[category]["topics"]` as a controlled vocabulary:
+the topics are already curated, technical, in English, and directly comparable across runs.
+The `_keywords_from_category` algorithm simply checks if each topic appears in the source
+article content (RSS title + fetched content), then falls back to long words from the title
+if fewer than 4 topics are found.
+
+Three advantages over a regex bag-of-words approach:
+1. **Controlled vocabulary**: only technical terms relevant to the category.
+2. **Consistent language**: topics are in English, like the RSS article title — no pollution
+   from the generated content prose.
+3. **Comparability**: two articles about `llama.cpp` will have `llama.cpp` in their keywords
+   regardless of how the writer phrased it.
+
+The fine semantic distinction (distinguishing two llama.cpp articles with different angles —
+benchmarks vs. HuggingFace integration) remains a blind spot in Phase 1 and will be
+addressed via BM25 \[9\] in Phase 2.
+
+---
+
+## 6. Complete Data Flow
 
 ```
 [MEMORY.md] ─── load_memory_index() ──→ recent_runs[]
@@ -451,7 +443,7 @@ via BM25 \[9\] en Phase 2.
 [filtered_articles[]] ──→ get_novelty_penalty(article, recent_runs)
                                               │
                                               ▼
-                              score_composite = score + freshness - penalty
+                              composite_score = score + freshness - penalty
                                               │
                                               ▼
                          ranked[0] = selected_article ──→ state["selected_article"]
@@ -460,7 +452,7 @@ via BM25 \[9\] en Phase 2.
                          build_writer_context(selected, recent_runs)
                             │                                │
                             ▼                               ▼
-                 articles passés pertinents        load_lessons(category)
+                 relevant past articles           load_lessons(category)
                             │                               │
                             └──────────────┬────────────────┘
                                            ▼
@@ -470,7 +462,7 @@ via BM25 \[9\] en Phase 2.
                                ▼
 [prompts/writer.md] + {memory_context} ──→ LLM → draft
                                                       │
-                                      (boucle writer ↔ critic)
+                                      (writer ↔ critic loop)
                                                       │
                                                       ▼
                                             blog_post.md
@@ -481,74 +473,74 @@ via BM25 \[9\] en Phase 2.
                                ┌─────────────┼──────────────┐
                                ▼             ▼               ▼
                           MEMORY.md    topics/{cat}.md   lessons/{cat}.md
-                       (prepend+arch)  (append entry)   (prepend si ≥2 iter)
+                       (prepend+arch)  (append entry)   (prepend if ≥2 iter)
 ```
 
 ---
 
 ## 7. Roadmap
 
-### Phase 2 — BM25 sur fichiers Markdown (~50 articles)
+### Phase 2 — BM25 on Markdown Files (~50 articles)
 
-À partir de 50 articles, la similarité de Jaccard sur 6 mots-clés montre ses limites :
-des articles sur des sujets distincts peuvent partager beaucoup de mots génériques.
+Beyond 50 articles, Jaccard similarity on 6 keywords shows its limits: articles on
+distinct topics may share many generic terms.
 
-L'ajout de `rank_bm25` \[9\] permettrait de remplacer la comparaison Jaccard par un
-scoring TF-IDF sur le corpus des articles mémorisés. **Aucun changement d'architecture** —
-la source des mots-clés (`_keywords_from_category`) reste inchangée, seule la fonction
-de comparaison dans `get_novelty_penalty` et `build_writer_context` évolue.
+Adding `rank_bm25` \[9\] would replace the Jaccard comparison with TF-IDF scoring on the
+memorized article corpus. **No architecture change** — the keyword source
+(`_keywords_from_category`) remains unchanged; only the comparison function in
+`get_novelty_penalty` and `build_writer_context` evolves.
 
 ```python
-# Phase 2 : remplacement de la comparaison Jaccard par BM25
+# Phase 2: replace Jaccard comparison with BM25
 from rank_bm25 import BM25Okapi
 
-# corpus = keywords de chaque run mémorisé
+# corpus = keywords from each memorized run
 corpus = [run["keywords"] for run in recent_runs]
 bm25 = BM25Okapi(corpus)
 # article_kw = _keywords_from_category(category, title, content)
 scores = bm25.get_scores(article_kw)
-# → scores[i] remplace le calcul Jaccard pour le run i
+# → scores[i] replaces the Jaccard calculation for run i
 ```
 
-### Phase 3 — Graphe de connaissances temporel (Graphiti)
+### Phase 3 — Temporal Knowledge Graph (Graphiti)
 
-Pour une mémoire de plus de 200 articles, `graphiti-core` (Zep AI, 2025) \[10\] offre
-un graphe de connaissances temporel construit automatiquement à partir de texte libre.
-Il maintient des *bi-temporal edges* : chaque relation entre entités est horodatée
-(validité de la connaissance dans le temps réel ET dans le temps de la narration).
+For memory beyond 200 articles, `graphiti-core` (Zep AI, 2025) \[10\] offers a temporal
+knowledge graph automatically built from free text. It maintains *bi-temporal edges*: each
+relationship between entities is timestamped (validity of the knowledge in both real time
+and narrative time).
 
 ```
-[Kubernetes] ──[couvre]──> [Gateway API] ──[date: 2026-03-10]──> [Article #7]
-[Gateway API] ──[remplace]──> [Ingress] ──[depuis: K8s 1.28]
+[Kubernetes] ──[covers]──> [Gateway API] ──[date: 2026-03-10]──> [Article #7]
+[Gateway API] ──[replaces]──> [Ingress] ──[since: K8s 1.28]
 ```
 
-Cette représentation permettrait au writer de raisonner sur des trajectoires technologiques
-("Ingress est déprécié depuis que Gateway API a été GA") au lieu d'une simple liste d'articles.
+This representation would allow the writer to reason about technological trajectories
+("Ingress has been deprecated since Gateway API went GA") instead of a simple article list.
 
 ---
 
-## 8. Vérification
+## 8. Verification
 
 ```bash
-# 1. Premier run — créer la mémoire
+# 1. First run — create memory
 python main.py --category infra
-# → Vérifier memory/MEMORY.md (créé automatiquement)
-# → Vérifier memory/topics/infra.md (créé automatiquement)
+# → Check memory/MEMORY.md (created automatically)
+# → Check memory/topics/infra.md (created automatically)
 
-# 2. Deuxième run — pénalité novelty
+# 2. Second run — novelty penalty
 python main.py --category infra
-# → Logs attendus :
-# [SELECTOR]   Memory: 1 runs chargés
+# → Expected logs:
+# [SELECTOR]   Memory: 1 runs loaded
 # [SELECTOR]   Score: 8.5/10 + freshness: 0.72 - novelty penalty: 1.5
-# (si sujet proche du run précédent)
+# (if topic close to previous run)
 
-# 3. Vérifier la continuité dans le blog post
-grep -i "dans mon article\|j'avais expliqué\|précédent" output/*/*/blog_post.md
+# 3. Verify continuity in the blog post
+grep -i "in my article\|I had explained\|previous" output/*/*/blog_post.md
 ```
 
 ---
 
-## Références
+## References
 
 \[1\] Sumers, T. R., Yao, S., Narasimhan, K., & Griffiths, T. L. (2023). **Cognitive
 Architectures for Language Agents**. *arXiv:2309.02427*.
@@ -575,36 +567,34 @@ for Reordering Documents and Producing Summaries**. *ACM SIGIR 1998*, 335–336.
 <https://doi.org/10.1145/290941.291025>
 
 \[7\] Weng, L. et al. (2025). **A-MEM: Agentic Memory System for LLM Agents**.
-Référencé dans les discussions sur les patterns de mémoire agents (2025).
+Referenced in discussions on agent memory patterns (2025).
 
-\[8\] Anthropic (2025). **Claude Code Memory System** — documentation interne du système
-de mémoire Markdown-First utilisé par Claude Code, observable dans le comportement de
-l'agent. Cf. fichiers `~/.claude/projects/*/memory/MEMORY.md`.
+\[8\] Anthropic (2025). **Claude Code Memory System** — internal documentation of the
+Markdown-First memory system used by Claude Code, observable in agent behavior.
+See files `~/.claude/projects/*/memory/MEMORY.md`.
 
 \[9\] Robertson, S., & Zaragoza, H. (2009). **The Probabilistic Relevance Framework:
 BM25 and Beyond**. *Foundations and Trends in Information Retrieval*, 3(4), 333–389.
-Implémentation Python : `rank_bm25` (Doricha, PyPI).
+Python implementation: `rank_bm25` (Doricha, PyPI).
 <https://doi.org/10.1561/1500000019>
 
 \[10\] Zep AI (2025). **Graphiti: Temporally-Aware Knowledge Graph for AI Agents**.
 `graphiti-core` — <https://github.com/getzep/graphiti>
 
 \[11\] Liu, Z. et al. (2026). **Live-Evo: Evolving LLM Agents via Dual-Bank Experience
-Replay**. *arXiv:2602.02369*. Introduit le pattern dual-bank : Experience Bank (ce qui
-s'est passé) + Meta-Guideline Bank (comment utiliser cette expérience), avec pondération
-par utilité des guidelines.
+Replay**. *arXiv:2602.02369*. Introduces the dual-bank pattern: Experience Bank (what
+happened) + Meta-Guideline Bank (how to use that experience), with utility-weighted guidelines.
 
 \[12\] Chen, Y. et al. (2026). **MemRL: Memory-Augmented Reinforcement Learning for
-Long-Horizon Agent Tasks**. *arXiv:2601.03192*. Two-Phase Retrieval : filtrer par
-pertinence, puis sélectionner par Q-value (utilité apprise du feedback). Justifie le
-decay usage-based plutôt que time-based.
+Long-Horizon Agent Tasks**. *arXiv:2601.03192*. Two-Phase Retrieval: filter by relevance,
+then select by Q-value (utility learned from feedback). Justifies usage-based rather than
+time-based decay.
 
 \[13\] IBM Research (2026). **Trajectory-Informed Memory for LLM Agents**. *arXiv:2603.10600*.
-Extraction automatique de learnings actionnables depuis des trajectoires d'exécution.
-Trois types de guidance : strategy tips (succès), recovery tips (échecs), optimization tips.
-Inspire directement la fonction `store_lesson` d'AgenticBlog.
+Automatic extraction of actionable learnings from execution trajectories. Three guidance
+types: strategy tips (successes), recovery tips (failures), optimization tips. Directly
+inspires the `store_lesson` function in AgenticBlog.
 
 \[14\] Zhao, S. et al. (2025). **Memory in the Age of AI Agents: A Survey**. *arXiv:2512.13564*.
-Survey de 47 auteurs identifiant la Strategy-based Experiential Memory comme composant
-manquant dans la majorité des pipelines agents — stocker des règles abstraites issues des
-échecs, pas seulement les événements bruts.
+Survey of 47 authors identifying Strategy-based Experiential Memory as the missing component
+in most agent pipelines — storing abstract rules derived from failures, not just raw events.

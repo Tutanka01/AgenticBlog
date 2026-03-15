@@ -1,28 +1,28 @@
-# Installation et configuration
+# Installation and configuration
 
-## Prérequis
+## Prerequisites
 
-- Python 3.12 (recommandé — voir ci-dessous)
-- Node.js 20+ (pour l'interface web)
-- Un compte OpenRouter (défaut) ou Ollama en local
+- Python 3.12 (recommended — see below)
+- Node.js 20+ (for the web interface)
+- An OpenRouter account (default) or Ollama locally
 
 ---
 
 ## Installation
 
-### 1. Vérifier la version Python
+### 1. Check Python version
 
 ```bash
 python3.12 --version
 ```
 
-Si la commande échoue, installe Python 3.12 via Homebrew (macOS) :
+If the command fails, install Python 3.12 via Homebrew (macOS):
 
 ```bash
 brew install python@3.12
 ```
 
-### 2. Créer et activer le venv
+### 2. Create and activate the venv
 
 ```bash
 git clone <repo>
@@ -31,17 +31,17 @@ cd AgenticBlog
 python3.12 -m venv venv
 source venv/bin/activate
 
-python --version   # doit afficher 3.12.x
+python --version   # should print 3.12.x
 ```
 
-### 3. Installer les dépendances
+### 3. Install Python dependencies
 
 ```bash
 pip install -r requirements.txt
 pip install -r requirements_ui.txt
 ```
 
-### 4. Installer les dépendances frontend
+### 4. Install frontend dependencies
 
 ```bash
 cd frontend
@@ -55,72 +55,79 @@ cd ..
 
 ```bash
 cp .env.example .env
-# Édite .env et remplace LLM_API_KEY par ta clé OpenRouter
+# Edit .env and replace LLM_API_KEY with your OpenRouter key
 ```
 
-### Variables LLM
+### LLM variables
 
-| Variable | Défaut | Description |
-|----------|--------|-------------|
-| `LLM_BASE_URL` | `https://openrouter.ai/api/v1` | URL de l'API LLM |
-| `LLM_MODEL` | `mistralai/mistral-7b-instruct` | Nom du modèle (format OpenRouter) |
-| `LLM_API_KEY` | *(vide)* | Clé API — **obligatoire** |
-| `LLM_TEMPERATURE` | `0.3` | Température (filter/critic). Writer monte à 0.7 en dur |
-| `LLM_TIMEOUT_SECONDS` | `90` | Timeout max par requête LLM (évite les blocages silencieux) |
-| `OPENROUTER_SITE_URL` | `https://github.com/AgenticBlog` | Header d'attribution OpenRouter |
-| `OPENROUTER_APP_NAME` | `AgenticBlog` | Header d'attribution OpenRouter |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLM_BASE_URL` | `https://openrouter.ai/api/v1` | LLM API URL |
+| `LLM_MODEL` | `mistralai/mistral-7b-instruct` | Model name (OpenRouter format) |
+| `LLM_API_KEY` | *(empty)* | API key — **required** |
+| `LLM_TEMPERATURE` | `0.3` | Temperature (filter/critic). Writer is hardcoded at 0.7 |
+| `LLM_TIMEOUT_SECONDS` | `90` | Max timeout per LLM request (avoids silent hangs) |
+| `OPENROUTER_SITE_URL` | `https://github.com/AgenticBlog` | OpenRouter attribution header |
+| `OPENROUTER_APP_NAME` | `AgenticBlog` | OpenRouter attribution header |
 
-Les deux headers `OPENROUTER_SITE_URL` / `OPENROUTER_APP_NAME` sont injectés automatiquement par `llm.py` dès que `LLM_BASE_URL` contient `openrouter.ai`. Ils sont ignorés pour tout autre backend.
+The two `OPENROUTER_SITE_URL` / `OPENROUTER_APP_NAME` headers are automatically injected by `llm.py` whenever `LLM_BASE_URL` contains `openrouter.ai`. They are ignored for any other backend.
 
-### Variables pipeline
+### Pipeline variables
 
-| Variable | Défaut | Description |
-|----------|--------|-------------|
-| `FILTER_THRESHOLD` | `6` | Score minimum pour garder un article (0–10) |
-| `MAX_ARTICLES_TO_FETCH` | `40` | Limite totale d'articles scrappés |
-| `TOP_N_FILTERED` | `5` | Articles transmis au selector après filtrage |
-| `MAX_CRITIQUE_ITERATIONS` | `3` | Nombre max de boucles writer ↔ critic |
-| `CHECKPOINT_DB` | `memory/checkpoints.sqlite` | Base SQLite LangGraph |
-| `OUTPUT_DIR` | `./output` | Dossier de sortie |
-| `PROMPTS_DIR` | `./prompts` | Dossier des prompts Markdown |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FILTER_THRESHOLD` | `6` | Minimum score to keep an article (0–10) |
+| `MAX_ARTICLES_TO_FETCH` | `40` | Total article scrape limit |
+| `TOP_N_FILTERED` | `5` | Articles passed to selector after filtering |
+| `MAX_CRITIQUE_ITERATIONS` | `3` | Max number of writer ↔ critic loops |
+| `CHECKPOINT_DB` | `memory/checkpoints.sqlite` | LangGraph SQLite DB |
+| `OUTPUT_DIR` | `./output` | Output directory |
+| `PROMPTS_DIR` | `./prompts` | Markdown prompts directory |
 
-> **Note :** `RSS_FEEDS` et `INTEREST_TOPICS` ne sont plus les variables principales. Les feeds et topics sont maintenant définis par catégorie dans `config.CATEGORIES`. Ces variables `.env` sont conservées pour compatibilité mais ne sont plus utilisées par `scraper` et `filter`.
+> **Note:** `RSS_FEEDS` and `INTEREST_TOPICS` are no longer the main variables. Feeds and topics are now defined per category in `config.CATEGORIES`. These `.env` variables are kept for compatibility but are no longer used by `scraper` and `filter`.
 
 ---
 
-## Lancer le pipeline
+## Run the pipeline
 
 ```bash
-# Run complet — catégorie par défaut (infra)
+# Full run — default category (infra)
 python main.py
 
-# Choisir une catégorie
-python main.py --category infra      # Infrastructure & DevOps (défaut)
-python main.py --category security   # veille cybersécurité
-python main.py --category ai         # veille IA / LLM
-python main.py --category cloud      # veille Cloud
-python main.py --category africa     # tech Maroc / Afrique
+# Choose a category
+python main.py --category infra      # Infrastructure & DevOps (default)
+python main.py --category security   # cybersecurity watch
+python main.py --category ai         # AI / LLM watch
+python main.py --category cloud      # Cloud watch
+python main.py --category africa     # Tech Morocco / Africa
 
-# Forme courte (-c est un alias de --category)
+# Short form (-c is an alias for --category)
 python main.py -c security
 
-# Lister les runs précédents
+# Choose output language (default: en) — 3 supported: en, fr, ar
+python main.py --lang en             # English (default)
+python main.py --lang fr             # French
+python main.py --lang ar             # Arabic (Modern Standard)
+python main.py -c ai -l fr          # AI category, French output
+python main.py -c africa -l ar      # Africa category, Arabic output
+
+# List previous runs
 python main.py --list
 
-# Reprendre un run interrompu
+# Resume an interrupted run
 python main.py --resume <run_id>
 python main.py --resume <run_id> --category security
 ```
 
-Au démarrage, si un run précédent existe, le pipeline propose automatiquement de le reprendre.
+At startup, if a previous run exists, the pipeline automatically offers to resume it.
 
 ---
 
-## Lancer l'interface web en local (mode dev)
+## Run the web interface locally (dev mode)
 
-Ouvre 2 terminaux.
+Open 2 terminals.
 
-### Terminal 1: API backend
+### Terminal 1: backend API
 
 ```bash
 source venv/bin/activate
@@ -134,93 +141,93 @@ cd frontend
 npm run dev
 ```
 
-Acces:
+Access:
 
 - Frontend: `http://localhost:5173`
 - API: `http://localhost:8000`
 - Healthcheck: `http://localhost:8000/api/health`
 
-En mode dev, Vite proxy automatiquement `/api` vers `http://localhost:8000`.
+In dev mode, Vite automatically proxies `/api` to `http://localhost:8000`.
 
 ---
 
-## Deploiement conteneurise
+## Containerized deployment
 
-Pour lancer l'application complete via Docker Compose (backend + frontend), consulte `docs/docker.md`.
+To run the full application via Docker Compose (backend + frontend), see `docs/docker.md`.
 
-Pour les details d'architecture frontend, consulte `docs/frontend.md`.
+For frontend architecture details, see `docs/frontend.md`.
 
 ---
 
-## Catégories disponibles
+## Available categories
 
-Les catégories sont définies dans `config.CATEGORIES`. Chacune embarque ses propres feeds RSS et topics de filtrage — aucune variable `.env` à toucher pour changer de domaine.
+Categories are defined in `config.CATEGORIES`. Each embeds its own RSS feeds and filter topics — no `.env` variable to touch to change domain.
 
-| Option CLI | Label | Topics clés |
-|------------|-------|-------------|
+| CLI option | Label | Key topics |
+|------------|-------|------------|
 | `infra` | Infrastructure & DevOps | kubernetes, docker, linux, devops, CI/CD, GitOps, terraform… |
-| `security` | Cybersécurité | CVE, vulnerability, exploit, zero-day, ransomware, OWASP… |
-| `ai` | Intelligence Artificielle | LLM, AI agents, RAG, fine-tuning, ollama, llama.cpp… |
+| `security` | Cybersecurity | CVE, vulnerability, exploit, zero-day, ransomware, OWASP… |
+| `ai` | Artificial Intelligence | LLM, AI agents, RAG, fine-tuning, ollama, llama.cpp… |
 | `cloud` | Cloud | AWS, GCP, Azure, serverless, FinOps, cloud-native… |
-| `africa` | Tech Afrique & Maroc | Maroc, Morocco, Afrique, fintech Afrique, startup Maroc… |
+| `africa` | Tech Africa & Morocco | Maroc, Morocco, Afrique, fintech Afrique, startup Maroc… |
 
 ---
 
-## Backends LLM
+## LLM backends
 
-### OpenRouter (défaut)
+### OpenRouter (default)
 
 ```bash
-# Dans .env :
+# In .env:
 LLM_BASE_URL=https://openrouter.ai/api/v1
 LLM_API_KEY=sk-or-xxxxxxxxxxxxxxxxxxxx
 LLM_MODEL=mistralai/mistral-7b-instruct
 ```
 
-Modèles recommandés selon le budget :
+Recommended models by budget:
 
-| Modèle | Usage |
-|--------|-------|
-| `mistralai/mistral-7b-instruct` | Rapide, pas cher, bon pour filter/critic |
-| `mistralai/mistral-small-3.1` | Meilleur équilibre qualité/prix |
-| `anthropic/claude-3-haiku` | Très bon pour la rédaction (writer) |
-| `google/gemini-flash-1.5` | Rapide et multilingue |
-| `meta-llama/llama-3.1-8b-instruct:free` | Gratuit, pour tester |
+| Model | Use case |
+|-------|----------|
+| `mistralai/mistral-7b-instruct` | Fast, cheap, good for filter/critic |
+| `mistralai/mistral-small-3.1` | Best quality/price balance |
+| `anthropic/claude-3-haiku` | Excellent for writing (writer) |
+| `google/gemini-flash-1.5` | Fast and multilingual |
+| `meta-llama/llama-3.1-8b-instruct:free` | Free, for testing |
 
-La clé se génère sur [openrouter.ai/keys](https://openrouter.ai/keys).
+Generate your key at [openrouter.ai/keys](https://openrouter.ai/keys).
 
-### Ollama (local, hors-ligne)
+### Ollama (local, offline)
 
 ```bash
-# Dans .env :
+# In .env:
 LLM_BASE_URL=http://localhost:11434/v1
 LLM_API_KEY=ollama
 LLM_MODEL=mistral
 
-# Démarrer Ollama :
+# Start Ollama:
 ollama pull mistral
 ollama serve
 ```
 
-Les headers OpenRouter ne sont pas envoyés si l'URL ne contient pas `openrouter.ai`.
+OpenRouter headers are not sent if the URL does not contain `openrouter.ai`.
 
 ---
 
-## Structure des outputs
+## Output structure
 
-Après chaque run, `output/{run_date}/{run_id[:8]}/` contient :
+After each run, `output/{run_date}/{run_id[:8]}/` contains:
 
 ```
 output/
 └── 2026-03-13/
-    ├── a1b2c3d4/               ← run du matin
-    │   ├── blog_post.md        ← YAML front matter + draft validé (inchangé)
-    │   ├── linkedin_post.md    ← Post ≤ 280 caractères + 3 hashtags
-    │   ├── youtube_script.md   ← Script 60–90s avec timecodes
-    │   └── run_metadata.json   ← run_id, article, scores, itérations, tokens
-    └── e5f6a7b8/               ← run de l'après-midi (jamais écrasé)
+    ├── a1b2c3d4/               ← morning run
+    │   ├── blog_post.md        ← YAML front matter + validated draft (unchanged)
+    │   ├── linkedin_post.md    ← Post ≤ 280 characters + 3 hashtags
+    │   ├── youtube_script.md   ← 60–90s script with timecodes
+    │   └── run_metadata.json   ← run_id, article, scores, iterations, tokens
+    └── e5f6a7b8/               ← afternoon run (never overwritten)
         ├── blog_post.md
         └── ...
 ```
 
-Plusieurs runs le même jour coexistent sans jamais s'écraser.
+Multiple runs on the same day coexist without ever overwriting each other.

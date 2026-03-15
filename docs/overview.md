@@ -1,97 +1,97 @@
-# AgenticBlog — Vue d'ensemble
+# AgenticBlog — Overview
 
 ## Documentation
 
-- Setup local et variables: `docs/setup.md`
-- Contrats des agents: `docs/agents.md`
+- Local setup and variables: `docs/setup.md`
+- Agent contracts: `docs/agents.md`
 - Frontend (React/Vite/Tailwind): `docs/frontend.md`
-- Déploiement Docker: `docs/docker.md`
-- Mémoire éditoriale (architecture + papers): `docs/memory.md`
+- Docker deployment: `docs/docker.md`
+- Editorial memory (architecture + papers): `docs/memory.md`
 
-Pipeline multi-agents qui lit des flux RSS tech, sélectionne l'article le plus pertinent, fetche son contenu complet, rédige un post validé par un critique, puis exporte 3 formats (blog Markdown, LinkedIn, YouTube Shorts). Tout le run est persisté en SQLite et peut être repris après une interruption.
+Multi-agent pipeline that reads tech RSS feeds, picks the most relevant article, fetches its full content, drafts a post validated by a critic, then exports 3 formats (Markdown blog, LinkedIn, YouTube Shorts). The entire run is persisted in SQLite and can be resumed after an interruption.
 
-Le projet inclut aussi une interface web de pilotage:
+The project also includes a web control interface:
 
-- Backend API FastAPI + SSE (`api.py`)
-- Frontend React/Vite/Tailwind (`frontend/`)
-- Orchestration Docker Compose (`docker-compose.yml`)
+- FastAPI + SSE backend API (`api.py`)
+- React/Vite/Tailwind frontend (`frontend/`)
+- Docker Compose orchestration (`docker-compose.yml`)
 
 ---
 
-## Architecture du pipeline
+## Pipeline architecture
 
 ```
-scraper_node         ← feeds RSS selon la catégorie active
+scraper_node         ← RSS feeds based on active category
     ↓  raw_articles[] — {title, url, summary, source, published, fetched_at}
-filter_node          ← LLM : score chaque article 0-10 (topics de la catégorie)
+filter_node          ← LLM: score each article 0-10 (category topics)
     ↓  filtered_articles[] (score ≥ FILTER_THRESHOLD, top TOP_N_FILTERED)
-selector_node        ← score composite : LLM score + freshness bonus (0-1)
+selector_node        ← composite score: LLM score + freshness bonus (0-1)
     ↓  selected_article{}
-fetcher_node         ← cascade : direct → Jina AI Reader → RSS summary fallback
+fetcher_node         ← cascade: direct → Jina AI Reader → RSS summary fallback
     ↓  selected_article{} + full_content + fetch_method
 writer_node  ←──────────────────────────────┐
     ↓  draft (v1, v2…)                       │ critic_feedback
 critic_node  ──(score < 7, iter < 3)────────┘
-    ↓  (approve OR max_iter atteint)
-formatter_node       ← blog = YAML front matter + draft (pas de LLM)
+    ↓  (approve OR max_iter reached)
+formatter_node       ← blog = YAML front matter + draft (no LLM)
     ↓                  linkedin + youtube = LLM via prompts/formatter_social.md
-output_saver_node    ← écrit output/{date}/ + checkpoints SQLite
+output_saver_node    ← write output/{date}/ + SQLite checkpoints
     ↓
 END
 ```
 
-La boucle writer ↔ critic est bornée à `MAX_CRITIQUE_ITERATIONS` (défaut : 3). Si le score n'atteint pas 7/10 au bout de 3 tentatives, le pipeline continue quand même avec le meilleur draft produit.
+The writer ↔ critic loop is capped at `MAX_CRITIQUE_ITERATIONS` (default: 3). If the score does not reach 7/10 after 3 attempts, the pipeline continues with the best draft produced.
 
 ---
 
-## Catégories
+## Categories
 
-Le pipeline supporte plusieurs catégories de veille, chacune avec ses propres feeds RSS et topics de filtrage :
+The pipeline supports several content categories, each with its own RSS feeds and filter topics:
 
-| Catégorie | Label | Feeds |
-|-----------|-------|-------|
-| `infra` (défaut) | Infrastructure & DevOps | HN, Reddit K8s/DevOps/Selfhosted, LWN |
-| `security` | Cybersécurité | The Hacker News, BleepingComputer, LWN, Exploit-DB |
-| `ai` | Intelligence Artificielle | HN, Reddit ML/LocalLLaMA/Artificial |
+| Category | Label | Feeds |
+|----------|-------|-------|
+| `infra` (default) | Infrastructure & DevOps | HN, Reddit K8s/DevOps/Selfhosted, LWN |
+| `security` | Cybersecurity | The Hacker News, BleepingComputer, LWN, Exploit-DB |
+| `ai` | Artificial Intelligence | HN, Reddit ML/LocalLLaMA/Artificial |
 | `cloud` | Cloud | HN, AWS Blog, Reddit AWS/GCP/Azure |
-| `africa` | Tech Afrique & Maroc | HN, Reddit Africa/Morocco |
+| `africa` | Tech Africa & Morocco | HN, Reddit Africa/Morocco |
 
-La catégorie active est transmise dans `state["active_category"]` et lue par `scraper` et `filter`.
+The active category is passed in `state["active_category"]` and read by `scraper` and `filter`.
 
 ---
 
-## Structure des fichiers
+## File structure
 
 ```
 .
-├── main.py              # Point d'entrée (CLI : --resume, --list, --category)
-├── graph.py             # StateGraph LangGraph + checkpointer SQLite
+├── main.py              # Entry point (CLI: --resume, --list, --category, --lang)
+├── graph.py             # LangGraph StateGraph + SQLite checkpointer
 ├── state.py             # PipelineState (TypedDict) + ACPMessage (Pydantic)
-├── config.py            # Config centralisée : CATEGORIES, DEFAULT_CATEGORY, .env
-├── llm.py               # Client OpenAI partagé (headers OpenRouter injectés auto)
-├── .env                 # Variables d'environnement (non commité)
-├── .env.example         # Template à copier
+├── config.py            # Centralized config: CATEGORIES, DEFAULT_CATEGORY, .env
+├── llm.py               # Shared OpenAI client (OpenRouter headers auto-injected)
+├── .env                 # Environment variables (not committed)
+├── .env.example         # Template to copy
 ├── requirements.txt
 ├── agents/
-│   ├── scraper.py       # Fetch RSS → raw_articles (feeds selon catégorie)
-│   ├── filter.py        # Score LLM → filtered_articles (topics selon catégorie)
-│   ├── selector.py      # Score composite → selected_article
-│   ├── fetcher.py       # Cascade fetch : direct → Jina → RSS fallback
-│   ├── writer.py        # Rédige / révise → draft (avec retry longueur)
-│   ├── critic.py        # Évalue → feedback + approve/reject
+│   ├── scraper.py       # Fetch RSS → raw_articles (feeds by category)
+│   ├── filter.py        # LLM score → filtered_articles (topics by category)
+│   ├── selector.py      # Composite score → selected_article
+│   ├── fetcher.py       # Cascade fetch: direct → Jina → RSS fallback
+│   ├── writer.py        # Draft / revise → draft (with length retry)
+│   ├── critic.py        # Evaluate → feedback + approve/reject
 │   ├── formatter.py     # blog (YAML+draft) + linkedin/youtube (LLM)
-│   └── output_saver.py  # Persiste + résumé console
-├── prompts/             # Prompts Markdown avec variables {placeholder}
+│   └── output_saver.py  # Persist + console summary
+├── prompts/             # Markdown prompts with {placeholder} variables
 │   ├── filter.md
 │   ├── writer.md
 │   ├── critic.md
-│   ├── formatter.md        # (conservé, non utilisé — remplacé par formatter_social.md)
-│   └── formatter_social.md # LinkedIn + YouTube uniquement
+│   ├── formatter.md        # (kept, not used — replaced by formatter_social.md)
+│   └── formatter_social.md # LinkedIn + YouTube only
 ├── memory/
-│   └── checkpoints.sqlite  # Géré automatiquement par LangGraph
+│   └── checkpoints.sqlite  # Managed automatically by LangGraph
 └── output/
     └── {run_date}/
-        └── {run_id[:8]}/       # un sous-dossier par run — jamais d'écrasement
+        └── {run_id[:8]}/       # one subdirectory per run — never overwritten
             ├── blog_post.md
             ├── linkedin_post.md
             ├── youtube_script.md
@@ -100,25 +100,26 @@ La catégorie active est transmise dans `state["active_category"]` et lue par `s
 
 ---
 
-## State partagé
+## Shared state
 
-Toutes les données transitent via `PipelineState` (défini dans `state.py`). Chaque agent reçoit le state complet en lecture et retourne **uniquement les clés qu'il modifie**.
+All data flows through `PipelineState` (defined in `state.py`). Each agent receives the full state as read-only input and returns **only the keys it modifies**.
 
-Les messages inter-agents (`ACPMessage`) sont accumulés dans `state["messages"]` via `operator.add` comme reducer — ils ne sont jamais écrasés, seulement ajoutés. (`add_messages` de LangGraph n'est pas utilisé car il attend des objets LangChain avec un champ `.id`, incompatible avec les Pydantic models purs.)
+Inter-agent messages (`ACPMessage`) are accumulated in `state["messages"]` via `operator.add` as a reducer — they are never overwritten, only appended. (LangGraph's `add_messages` is not used as it expects LangChain objects with an `.id` field, incompatible with pure Pydantic models.)
 
-Champs clés ajoutés récemment :
+Key state fields:
 
-| Clé | Type | Rôle |
+| Key | Type | Role |
 |-----|------|------|
-| `active_category` | `str` | Catégorie du run (`"infra"`, `"security"`, `"ai"`, etc.) |
+| `active_category` | `str` | Run category (`"infra"`, `"security"`, `"ai"`, etc.) |
+| `output_language` | `str` | Output language code: `"fr"`, `"en"`, `"ar"` |
 
 ---
 
 ## LLM
 
-Le client est centralisé dans `llm.py`. Il expose un singleton `llm_client` importé par tous les agents — un seul endroit à modifier si le backend change.
+The client is centralized in `llm.py`. It exposes a `llm_client` singleton imported by all agents — one place to change if the backend changes.
 
-OpenRouter est le backend par défaut. `llm.py` détecte automatiquement si `LLM_BASE_URL` contient `openrouter.ai` et injecte les headers d'attribution requis (`HTTP-Referer`, `X-Title`). Pour tout autre backend, ces headers sont absents.
+OpenRouter is the default backend. `llm.py` automatically detects if `LLM_BASE_URL` contains `openrouter.ai` and injects the required attribution headers (`HTTP-Referer`, `X-Title`). For any other backend, these headers are omitted.
 
 | Backend | `LLM_BASE_URL` | `LLM_API_KEY` |
 |---------|----------------|---------------|

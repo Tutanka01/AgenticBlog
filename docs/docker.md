@@ -1,37 +1,37 @@
-# Deploiement Docker
+# Docker deployment
 
-Ce document explique comment lancer AgenticBlog en conteneurs avec Docker Compose.
+This document explains how to run AgenticBlog in containers using Docker Compose.
 
-## Ce qui est lance
+## What gets started
 
-`docker-compose.yml` demarre 2 services:
+`docker-compose.yml` starts 2 services:
 
 - `backend`:
-  - Image construite depuis `Dockerfile.backend`
-  - Expose `8000:8000`
-  - Lance `uvicorn api:app --host 0.0.0.0 --port 8000`
+  - Image built from `Dockerfile.backend`
+  - Exposes `8000:8000`
+  - Runs `uvicorn api:app --host 0.0.0.0 --port 8000`
 
 - `frontend`:
-  - Build Vite dans une image Node, puis service statique Nginx
-  - Expose `3000:80`
-  - Proxy `/api` vers `backend:8000`
+  - Vite build in a Node image, then static Nginx service
+  - Exposes `3000:80`
+  - Proxies `/api` to `backend:8000`
 
-## Volumes et persistance
+## Volumes and persistence
 
-Le service backend monte:
+The backend service mounts:
 
-- `./output:/app/output` (historique des runs et fichiers generes)
-- `./memory:/app/memory` (checkpoints SQLite)
-- `./.env:/app/.env:ro` (configuration LLM en lecture seule)
+- `./output:/app/output` (run history and generated files)
+- `./memory:/app/memory` (SQLite checkpoints)
+- `./.env:/app/.env:ro` (LLM configuration, read-only)
 
-Consequence: les donnees restent sur la machine hote entre deux redemarrages.
+Data persists on the host machine between restarts.
 
-## Prerequis
+## Prerequisites
 
 - Docker Engine + Docker Compose
-- Fichier `.env` present a la racine du projet
+- A `.env` file at the project root
 
-Exemple minimal:
+Minimal example:
 
 ```env
 LLM_BASE_URL=https://openrouter.ai/api/v1
@@ -39,67 +39,67 @@ LLM_API_KEY=sk-or-xxxxxxxx
 LLM_MODEL=mistralai/mistral-7b-instruct
 ```
 
-## Lancement
+## Start
 
-Depuis la racine du repo:
+From the repo root:
 
 ```bash
 docker compose up --build
 ```
 
-Acces:
+Access:
 
 - UI: `http://localhost:3000`
 - API: `http://localhost:8000`
-- Healthcheck API: `http://localhost:8000/api/health`
+- API healthcheck: `http://localhost:8000/api/health`
 
-## Arret
+## Stop
 
 ```bash
 docker compose down
 ```
 
-Arret + suppression des images creees localement:
+Stop and remove locally built images:
 
 ```bash
 docker compose down --rmi local
 ```
 
-## Mise a jour apres changements
+## Update after changes
 
-- Si tu modifies le backend, le frontend ou les Dockerfiles:
+If you modify the backend, frontend, or Dockerfiles:
 
 ```bash
 docker compose up --build
 ```
 
-Important: les changements sur `api.py` et `frontend/nginx.conf` (SSE, heartbeat, buffering) necessitent un rebuild.
+Note: changes to `api.py` and `frontend/nginx.conf` (SSE, heartbeat, buffering) require a rebuild.
 
-- Si le cache cree des effets de bord:
+If the cache causes side effects:
 
 ```bash
 docker compose build --no-cache
 docker compose up
 ```
 
-## Verification rapide (smoke test)
+## Quick smoke test
 
-1. Ouvrir `http://localhost:3000`
-2. Verifier que la vue `Pipeline` s'affiche
-3. Lancer un run avec une categorie
-4. Verifier les logs live et les transitions de noeuds
-5. Verifier les vues `Outputs` et `History`
+1. Open `http://localhost:3000`
+2. Verify the `Pipeline` view loads
+3. Launch a run with a category
+4. Check live logs and node transitions
+5. Verify the `Outputs` and `History` views
 
-## Depannage
+## Troubleshooting
 
-- `frontend` demarre mais pas de donnees:
-  - Verifier que `backend` est `healthy` via `http://localhost:8000/api/health`
-  - Lire les logs backend: `docker compose logs -f backend`
+- `frontend` starts but no data:
+  - Check that `backend` is healthy via `http://localhost:8000/api/health`
+  - Read backend logs: `docker compose logs -f backend`
 
-- Erreur API key / LLM:
-  - Verifier le contenu de `.env`
-  - Redemarrer: `docker compose up --build`
+- API key / LLM error:
+  - Check the contents of `.env`
+  - Restart: `docker compose up --build`
 
-- Port deja pris (`3000` ou `8000`):
-  - Changer le mapping dans `docker-compose.yml`
-  - Ou arreter le processus qui occupe le port
+- Port already in use (`3000` or `8000`):
+  - Change the mapping in `docker-compose.yml`
+  - Or stop the process occupying the port

@@ -16,7 +16,7 @@ def _clean_html(html: str) -> str:
 
 
 def _fetch_direct(url: str) -> str:
-    """Fetch direct avec headers navigateur réalistes."""
+    """Direct fetch with realistic browser headers."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -33,7 +33,7 @@ def _fetch_direct(url: str) -> str:
 
 
 def _fetch_via_jina(url: str) -> str:
-    """Jina AI Reader — proxy public qui contourne la plupart des blocages."""
+    """Jina AI Reader — public proxy that bypasses most paywalls and bot protections."""
     jina_url = f"https://r.jina.ai/{url}"
     headers = {"Accept": "text/plain"}
     resp = httpx.get(jina_url, headers=headers, timeout=20, follow_redirects=True)
@@ -45,25 +45,25 @@ def _fetch_via_jina(url: str) -> str:
 
 
 def fetcher_node(state: PipelineState) -> dict:
-    """Fetch article content via cascade : direct → Jina Reader → RSS summary fallback."""
+    """Fetch article content via cascade: direct → Jina Reader → RSS summary fallback."""
     article = state["selected_article"]
     url = article.get("url", "")
     full_content = ""
     method_used = "none"
 
-    # Stratégie 1 : fetch direct avec headers navigateur
+    # Strategy 1: direct fetch with browser headers
     try:
         full_content = _fetch_direct(url)
         method_used = "direct"
     except Exception as e1:
         print(f"[FETCHER]    Direct fetch failed: {e1}")
-        # Stratégie 2 : Jina AI Reader (proxy public gratuit, contourne la plupart des paywalls légers)
+        # Strategy 2: Jina AI Reader (free public proxy, bypasses most soft paywalls)
         try:
             full_content = _fetch_via_jina(url)
             method_used = "jina"
         except Exception as e2:
             print(f"[FETCHER]    Jina fetch failed: {e2}")
-            # Stratégie 3 : RSS summary (dernier recours)
+            # Strategy 3: RSS summary (last resort)
             full_content = article.get("summary", "")
             method_used = "rss_fallback"
 

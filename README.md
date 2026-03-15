@@ -1,58 +1,58 @@
 # AgenticBlog
 
-Pipeline multi-agents qui lit des flux RSS, sélectionne l'article le plus pertinent, rédige un post validé par un critique, et exporte trois formats prêts à publier — en une commande.
+Multi-agent pipeline that reads RSS feeds, picks the most relevant article, drafts a post validated by a critic, and exports three publish-ready formats — in a single command.
 
 ```
 python main.py --category security
 ```
 
-Construit avec **LangGraph** + **FastAPI** + **React**. Backend LLM configurable : OpenRouter, Ollama, llama.cpp, ou OpenAI direct.
+Built with **LangGraph** + **FastAPI** + **React**. Configurable LLM backend: OpenRouter, Ollama, llama.cpp, or OpenAI directly.
 
 ---
 
-## Ce que ça fait concrètement
+## What it produces
 
-Chaque run produit trois fichiers dans `output/{date}/{run_id}/` :
+Each run outputs three files in `output/{date}/{run_id}/`:
 
-| Fichier | Contenu |
-|---------|---------|
-| `blog_post.md` | Article Markdown 900–1200 mots avec YAML front matter |
-| `linkedin_post.md` | Post ≤ 280 caractères, hook + 3 hashtags |
-| `youtube_script.md` | Script ~90s avec timecodes (hook / problème / solution / CTA) |
+| File | Content |
+|------|---------|
+| `blog_post.md` | Markdown article 900–1200 words with YAML front matter |
+| `linkedin_post.md` | Post ≤ 280 characters, hook + 3 hashtags |
+| `youtube_script.md` | ~90s script with timecodes (hook / problem / solution / CTA) |
 
-Le pipeline scrape les feeds RSS de la catégorie choisie, score chaque article avec le LLM, choisit le meilleur en tenant compte de la fraîcheur et de la **mémoire éditoriale** (évite de répéter un sujet couvert récemment), fetche le contenu complet, rédige, fait critiquer, corrige, formate.
+The pipeline scrapes RSS feeds for the chosen category, scores each article with the LLM, picks the best one while accounting for freshness and **editorial memory** (avoids repeating a topic covered recently), fetches the full content, drafts, critiques, revises, and formats.
 
-Le writer reçoit aussi les **leçons des runs précédents** : chaque rejet par le critique est mémorisé et réinjecté automatiquement au run suivant — le pipeline apprend de ses erreurs éditoriales.
+The writer also receives **lessons from past runs**: every rejection by the critic is stored and automatically re-injected at the next run — the pipeline learns from its editorial mistakes.
 
 ---
 
-## Démarrage rapide
+## Quick start
 
-### 1. Prérequis
+### 1. Prerequisites
 
 - Python 3.12+
-- Une clé [OpenRouter](https://openrouter.ai/keys) — ou Ollama en local
+- An [OpenRouter](https://openrouter.ai/keys) API key — or Ollama locally
 
-### 2. Installation
+### 2. Install
 
 ```bash
 git clone https://github.com/Tutanka01/AgenticBlog
 cd AgenticBlog
 
 python -m venv venv
-source venv/bin/activate          # Windows : venv\Scripts\activate
+source venv/bin/activate          # Windows: venv\Scripts\activate
 
 pip install -r requirements.txt
 ```
 
-### 3. Configuration
+### 3. Configure
 
 ```bash
 cp .env.example .env
-# Ouvrir .env et renseigner LLM_API_KEY
+# Open .env and set LLM_API_KEY
 ```
 
-Le minimum à renseigner :
+Minimum required:
 
 ```bash
 LLM_BASE_URL=https://openrouter.ai/api/v1
@@ -60,17 +60,17 @@ LLM_API_KEY=sk-or-xxxxxxxxxxxx
 LLM_MODEL=mistralai/mistral-small-3.1
 ```
 
-### 4. Premier run
+### 4. First run
 
 ```bash
 python main.py
 ```
 
-Les outputs arrivent dans `output/` à la fin du run. C'est tout.
+Outputs land in `output/` at the end of the run. That's it.
 
 ---
 
-## Référence CLI
+## CLI reference
 
 ```
 python main.py [OPTIONS]
@@ -78,67 +78,96 @@ python main.py [OPTIONS]
 
 | Option | Description |
 |--------|-------------|
-| *(aucune)* | Run complet — catégorie `infra` (défaut) |
-| `--category <id>` / `-c <id>` | Choisir la catégorie de veille |
-| `--resume <run_id>` | Reprendre un run interrompu (checkpoints SQLite) |
-| `--list` | Lister les runs passés avec leurs métadonnées |
+| *(none)* | Full run — category `infra` (default) |
+| `--category <id>` / `-c <id>` | Choose the content category |
+| `--lang <code>` / `-l <code>` | Output language: `en` (default), `fr`, `ar` |
+| `--resume <run_id>` | Resume an interrupted run (SQLite checkpoints) |
+| `--list` | List past runs with their metadata |
 
-### Catégories disponibles
+### Available categories
 
 ```bash
 python main.py -c infra       # Kubernetes, DevOps, Linux, Terraform…
 python main.py -c security    # CVE, pentest, kernel, OWASP, zero-day…
 python main.py -c ai          # LLM, RAG, fine-tuning, Ollama, agents…
 python main.py -c cloud       # AWS, GCP, Azure, FinOps, serverless…
-python main.py -c africa      # Tech Maroc, Afrique, startups, fintech…
+python main.py -c africa      # Tech Morocco, Africa, startups, fintech…
 ```
 
-### Reprendre un run interrompu
+### Output language
 
-Le pipeline checkpointe chaque étape dans `memory/checkpoints.sqlite` via LangGraph.
-Si un run est interrompu (coupure réseau, erreur LLM passagère), il suffit de :
+Three supported languages:
+
+```bash
+python main.py --lang en      # English (default)
+python main.py --lang fr      # French
+python main.py --lang ar      # Arabic (Modern Standard)
+```
+
+### Flag combinations
+
+```bash
+# Category + language
+python main.py -c security -l en        # Cybersecurity watch in English
+python main.py -c ai -l fr              # AI watch in French
+python main.py -c africa -l ar          # Tech Africa in Arabic
+python main.py -c cloud -l en           # Cloud watch in English
+
+# Resume + category + language
+python main.py --resume <run_id> -c security -l en
+
+# Default run (infra category, English output)
+python main.py
+```
+
+The engine (code, docs, prompts) is in English. The generated content (blog post, LinkedIn, YouTube) uses the language you choose at run time.
+
+### Resume an interrupted run
+
+The pipeline checkpoints each step in `memory/checkpoints.sqlite` via LangGraph.
+If a run is interrupted (network dropout, transient LLM error), just run:
 
 ```bash
 python main.py --resume <run_id>
 ```
 
-Le `run_id` s'affiche au démarrage de chaque run et est listé par `--list`.
+The `run_id` is printed at startup and listed by `--list`.
 
 ---
 
 ## Pipeline
 
 ```
-scraper    Lit les feeds RSS de la catégorie → liste d'articles bruts
+scraper    Read RSS feeds for the category → list of raw articles
    │
-filter     LLM score chaque article 0–10 (topics de la catégorie)
-   │        garde score ≥ FILTER_THRESHOLD, top TOP_N_FILTERED
+filter     LLM scores each article 0–10 (category topics)
+   │        keep score ≥ FILTER_THRESHOLD, top TOP_N_FILTERED
    │
-selector   Score composite : LLM score + fraîcheur + pénalité mémoire éditoriale
-   │        → choisit l'article, construit le contexte des articles passés
+selector   Composite score: LLM score + freshness + editorial memory penalty
+   │        → picks the article, builds context from past articles
    │
-fetcher    Fetch le contenu complet (direct → Jina AI Reader → résumé RSS)
+fetcher    Fetch full content (direct → Jina AI Reader → RSS summary)
    │
 writer  ◄──────────────────────────────────┐
-   │    Rédige le brouillon                │ feedback
+   │    Draft the article                  │ feedback
    │                                       │
-critic  ── score < 7 et iter < 3 ──────────┘
-   │    ── approuve ou passe à la suite
+critic  ── score < 7 and iter < 3 ─────────┘
+   │    ── approve or move on
    │
-formatter  Construit le front matter YAML + génère LinkedIn + YouTube via LLM
+formatter  Build YAML front matter + generate LinkedIn + YouTube via LLM
    │
-output_saver  Écrit output/ + met à jour la mémoire éditoriale
+output_saver  Write output/ + update editorial memory
 ```
 
-La boucle writer ↔ critic est bornée à `MAX_CRITIQUE_ITERATIONS` (défaut : 3).
+The writer ↔ critic loop is capped at `MAX_CRITIQUE_ITERATIONS` (default: 3).
 
 ---
 
-## Backends LLM
+## LLM backends
 
-Le client LLM est centralisé dans `llm.py` et compatible avec tout backend API OpenAI.
+The LLM client is centralized in `llm.py` and compatible with any OpenAI-compatible API.
 
-### OpenRouter (défaut, recommandé)
+### OpenRouter (default, recommended)
 
 ```bash
 LLM_BASE_URL=https://openrouter.ai/api/v1
@@ -146,105 +175,105 @@ LLM_API_KEY=sk-or-xxxxxxxxxxxx
 LLM_MODEL=mistralai/mistral-small-3.1
 ```
 
-Modèles testés et recommandés :
+Tested and recommended models:
 
-| Modèle | Qualité | Coût |
-|--------|---------|------|
-| `mistralai/mistral-small-3.1` | Bon équilibre | ~$0.10/run |
-| `anthropic/claude-3-haiku` | Excellent pour la rédaction | ~$0.30/run |
-| `google/gemini-flash-1.5` | Rapide et multilingue | ~$0.08/run |
-| `meta-llama/llama-3.1-8b-instruct:free` | Gratuit, pour tester | $0 |
+| Model | Quality | Cost |
+|-------|---------|------|
+| `mistralai/mistral-small-3.1` | Good balance | ~$0.10/run |
+| `anthropic/claude-3-haiku` | Excellent for writing | ~$0.30/run |
+| `google/gemini-flash-1.5` | Fast and multilingual | ~$0.08/run |
+| `meta-llama/llama-3.1-8b-instruct:free` | Free, for testing | $0 |
 
-### Ollama (local, hors-ligne)
+### Ollama (local, offline)
 
 ```bash
 LLM_BASE_URL=http://localhost:11434/v1
 LLM_API_KEY=ollama
 LLM_MODEL=mistral
 
-# Démarrer Ollama :
+# Start Ollama:
 ollama pull mistral && ollama serve
 ```
 
 ---
 
-## Mémoire éditoriale
+## Editorial memory
 
-AgenticBlog implémente une architecture **dual-bank** inspirée des travaux récents sur les agents à mémoire persistante (Live-Evo, MemRL, Trajectory-Informed Memory) :
+AgenticBlog implements a **dual-bank** architecture inspired by recent work on persistent-memory agents (Live-Evo, MemRL, Trajectory-Informed Memory):
 
-### Experience Bank — ce qui a été couvert
+### Experience Bank — what has been covered
 
-`memory/topics/{category}.md` enregistre chaque article publié. À chaque run :
+`memory/topics/{category}.md` records every published article. At each run:
 
-- Le **selector** applique une pénalité de nouveauté aux articles trop proches d'un sujet couvert dans les 14 derniers jours (similarité de Jaccard sur les mots-clés) — favorise la diversité éditoriale sans exclure un bon article.
-- Le **writer** reçoit le contexte des articles passés pertinents pour créer de la continuité narrative ("Dans mon article sur X, j'avais expliqué Y...").
+- The **selector** applies a novelty penalty to articles too close to a topic covered in the last 14 days (Jaccard similarity on keywords) — promotes editorial diversity without excluding a good article.
+- The **writer** receives the context of relevant past articles to create narrative continuity ("In my article on X, I explained Y...").
 
-### Meta-Guideline Bank — ce qui a échoué (Reflexion Loop)
+### Meta-Guideline Bank — what failed (Reflexion Loop)
 
-`memory/lessons/{category}.md` enregistre les rejets du critique. Quand un brouillon demande ≥ 2 itérations avant d'être approuvé, la raison du rejet est mémorisée et **réinjectée automatiquement dans le prompt du writer au run suivant** :
+`memory/lessons/{category}.md` records critic rejections. When a draft requires ≥ 2 iterations before approval, the rejection reason is stored and **automatically re-injected into the writer's prompt at the next run**:
 
 ```
-### Leçons critiques — à appliquer obligatoirement
-- [haute priorité] ton trop formel dans l'introduction; manque d'exemples CLI concrets
-- [priorité normale] structure trop linéaire, accroche trop neutre
+### Critical lessons — apply without exception
+- [high priority] tone too formal in the introduction; lacking concrete CLI examples
+- [normal priority] structure too linear, hook too neutral
 ```
 
-Les leçons vieillissent par usage (×0.85 à chaque run sur la même catégorie) et sont purgées automatiquement après ~17 runs — les erreurs récentes ont plus de poids que les anciennes.
+Lessons decay with use (×0.85 per run in the same category) and are automatically purged after ~17 runs — recent errors carry more weight than old ones.
 
-**Cycle d'homéostasie :**
+**Homeostasis cycle:**
 
-| Runs | Ce qui se passe |
-|------|----------------|
-| 1–3 | Le critic rejette le brouillon (ton trop formel, structure plate…). La leçon est mémorisée avec `poids: 1.00`. |
-| 4–10 | Le writer reçoit la leçon en `[haute priorité]`, s'ajuste dès le premier brouillon — `iteration_count = 1`. |
-| 11–20 | Les poids décroissent (×0.85 à chaque run). La leçon passe en `[priorité normale]` puis disparaît. |
-| 21+ | Le writer refait peut-être l'erreur. Le critic la rattrape, la leçon remonte à `poids: 1.00`. Et ainsi de suite. |
+| Runs | What happens |
+|------|-------------|
+| 1–3 | Critic rejects the draft (tone too formal, flat structure…). Lesson stored with `weight: 1.00`. |
+| 4–10 | Writer receives the lesson as `[high priority]`, adjusts from the first draft — `iteration_count = 1`. |
+| 11–20 | Weights decay (×0.85 per run). Lesson moves to `[normal priority]` then disappears. |
+| 21+ | Writer may repeat the mistake. Critic catches it, lesson rises back to `weight: 1.00`. And so on. |
 
-Le pipeline ne converge pas vers un état figé — il oscille autour d'un équilibre éditorial, comme un système à rétroaction.
+The pipeline does not converge to a fixed state — it oscillates around an editorial equilibrium, like a feedback system.
 
-Aucune base vectorielle, aucune infrastructure — uniquement des fichiers Markdown.
+No vector database, no infrastructure — just Markdown files.
 
 ```
 memory/
-├── MEMORY.md           ← Index des 60 derniers runs
-├── topics/             ← Experience Bank (articles produits)
+├── MEMORY.md           ← Index of the last 60 runs
+├── topics/             ← Experience Bank (articles produced)
 │   ├── infra.md
 │   ├── security.md
 │   └── ...
-├── lessons/            ← Meta-Guideline Bank (leçons éditoriales)
+├── lessons/            ← Meta-Guideline Bank (editorial lessons)
 │   ├── infra.md
 │   └── ...
-└── archive/            ← Overflow automatique
+└── archive/            ← Automatic overflow
 ```
 
-Voir `docs/memory.md` pour les fondements théoriques et les références académiques.
+See `docs/memory.md` for theoretical foundations and academic references.
 
 ---
 
-## Variables d'environnement
+## Environment variables
 
-| Variable | Défaut | Description |
-|----------|--------|-------------|
-| `LLM_BASE_URL` | `https://openrouter.ai/api/v1` | URL de l'API LLM |
-| `LLM_MODEL` | `mistralai/mistral-small-3.1` | Modèle |
-| `LLM_API_KEY` | *(vide)* | Clé API — **obligatoire** |
-| `LLM_TEMPERATURE` | `0.3` | Température (filter, critic, formatter) |
-| `LLM_TIMEOUT_SECONDS` | `90` | Timeout par requête LLM |
-| `FILTER_THRESHOLD` | `6` | Score minimum pour garder un article (0–10) |
-| `MAX_ARTICLES_TO_FETCH` | `40` | Limite d'articles scrappés |
-| `TOP_N_FILTERED` | `5` | Articles transmis au selector |
-| `MAX_CRITIQUE_ITERATIONS` | `3` | Boucles writer ↔ critic max |
-| `CHECKPOINT_DB` | `memory/checkpoints.sqlite` | Base SQLite LangGraph |
-| `OUTPUT_DIR` | `./output` | Dossier de sortie |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLM_BASE_URL` | `https://openrouter.ai/api/v1` | LLM API URL |
+| `LLM_MODEL` | `mistralai/mistral-small-3.1` | Model |
+| `LLM_API_KEY` | *(empty)* | API key — **required** |
+| `LLM_TEMPERATURE` | `0.3` | Temperature (filter, critic, formatter) |
+| `LLM_TIMEOUT_SECONDS` | `90` | Per-request LLM timeout |
+| `FILTER_THRESHOLD` | `6` | Minimum score to keep an article (0–10) |
+| `MAX_ARTICLES_TO_FETCH` | `40` | Max scraped articles |
+| `TOP_N_FILTERED` | `5` | Articles passed to selector |
+| `MAX_CRITIQUE_ITERATIONS` | `3` | Max writer ↔ critic loops |
+| `CHECKPOINT_DB` | `memory/checkpoints.sqlite` | LangGraph SQLite DB |
+| `OUTPUT_DIR` | `./output` | Output directory |
 
 ---
 
-## Interface web (optionnelle)
+## Web interface (optional)
 
-La CLI est le mode principal. L'interface web est disponible pour visualiser le pipeline
-en temps réel et consulter l'historique des runs.
+The CLI is the primary mode. The web interface is available to visualize the pipeline
+in real time and browse run history.
 
-**Mode développement (2 terminaux) :**
+**Development mode (2 terminals):**
 
 ```bash
 # Terminal 1 — API
@@ -256,29 +285,29 @@ uvicorn api:app --port 8000 --reload
 cd frontend && npm ci && npm run dev
 ```
 
-Accès : `http://localhost:5173`
+Access: `http://localhost:5173`
 
-**Via Docker :**
+**Via Docker:**
 
 ```bash
 docker-compose up
 ```
 
-Accès : `http://localhost:3000`
+Access: `http://localhost:3000`
 
 ---
 
-## Structure du projet
+## Project structure
 
 ```
 AgenticBlog/
-├── main.py              # Point d'entrée CLI
-├── graph.py             # StateGraph LangGraph
+├── main.py              # CLI entry point
+├── graph.py             # LangGraph StateGraph
 ├── state.py             # PipelineState TypedDict + ACPMessage
-├── config.py            # Catégories, feeds RSS, style rédactionnel
-├── llm.py               # Client LLM partagé
-├── memory_manager.py    # Mémoire éditoriale Markdown-First
-├── api.py               # API FastAPI + SSE (UI optionnelle)
+├── config.py            # Categories, RSS feeds, writing style
+├── llm.py               # Shared LLM client
+├── memory_manager.py    # Markdown-First editorial memory
+├── api.py               # FastAPI + SSE (optional UI)
 ├── agents/
 │   ├── scraper.py
 │   ├── filter.py
@@ -288,32 +317,32 @@ AgenticBlog/
 │   ├── critic.py
 │   ├── formatter.py
 │   └── output_saver.py
-├── prompts/             # Prompts Markdown avec variables {placeholder}
-├── frontend/            # React 18 + Vite + Tailwind (UI optionnelle)
-├── memory/              # Dual-Bank (topics/ + lessons/) + checkpoints SQLite
-├── output/              # Contenu généré (jamais commité)
+├── prompts/             # Markdown prompts with {placeholder} variables
+├── frontend/            # React 18 + Vite + Tailwind (optional UI)
+├── memory/              # Dual-Bank (topics/ + lessons/) + SQLite checkpoints
+├── output/              # Generated content (never committed)
 └── docs/
-    ├── agents.md        # Contrats et comportements des agents
-    ├── memory.md        # Architecture mémoire + références académiques
-    ├── setup.md         # Configuration détaillée
-    ├── frontend.md      # Architecture React
-    └── docker.md        # Déploiement conteneurisé
+    ├── agents.md        # Agent contracts and behaviors
+    ├── memory.md        # Memory architecture + academic references
+    ├── setup.md         # Detailed configuration
+    ├── frontend.md      # React architecture
+    └── docker.md        # Containerized deployment
 ```
 
 ---
 
 ## Documentation
 
-| Doc | Contenu |
+| Doc | Content |
 |-----|---------|
-| [`docs/setup.md`](docs/setup.md) | Installation, configuration, backends LLM |
-| [`docs/agents.md`](docs/agents.md) | Contrats des agents, comportements, fallbacks |
-| [`docs/memory.md`](docs/memory.md) | Architecture mémoire éditoriale + papers |
-| [`docs/frontend.md`](docs/frontend.md) | Interface web React |
-| [`docs/docker.md`](docs/docker.md) | Déploiement Docker Compose |
+| [`docs/setup.md`](docs/setup.md) | Installation, configuration, LLM backends |
+| [`docs/agents.md`](docs/agents.md) | Agent contracts, behaviors, fallbacks |
+| [`docs/memory.md`](docs/memory.md) | Editorial memory architecture + papers |
+| [`docs/frontend.md`](docs/frontend.md) | React web interface |
+| [`docs/docker.md`](docs/docker.md) | Docker Compose deployment |
 
 ---
 
-## Auteur
+## Author
 
-**Mohamad El Akhal** — ingénieur DevOps/Cloud, [makhal.fr](https://makhal.fr)
+**Mohamad El Akhal** — DevOps/Cloud engineer, [makhal.fr](https://makhal.fr)

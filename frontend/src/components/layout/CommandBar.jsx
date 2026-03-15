@@ -15,11 +15,19 @@ const CATEGORIES = [
   { id: 'africa',   label: 'africa',   color: '#F59E0B' },
 ];
 
+const LANGUAGES = [
+  { id: 'fr', label: 'fr' },
+  { id: 'en', label: 'en' },
+  { id: 'ar', label: 'ar' },
+];
+
 export default function CommandBar({
   activeView,
   onViewChange,
   category,
   onCategoryChange,
+  lang,
+  onLangChange,
   isRunning,
   onRunToggle,
   topbarData,
@@ -166,6 +174,27 @@ export default function CommandBar({
             ▾
           </span>
         </div>
+
+        {/* Language selector */}
+        <select
+          value={lang}
+          onChange={(e) => onLangChange(e.target.value)}
+          style={{
+            appearance: 'none',
+            padding: '4px 12px',
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--bg-border)',
+            borderRadius: 6,
+            fontSize: 11,
+            fontFamily: 'JetBrains Mono, monospace',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+          }}
+        >
+          {LANGUAGES.map((l) => (
+            <option key={l.id} value={l.id}>{l.label}</option>
+          ))}
+        </select>
 
         {/* Run/Stop button */}
         <button

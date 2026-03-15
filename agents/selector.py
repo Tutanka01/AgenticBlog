@@ -5,7 +5,7 @@ from memory_manager import load_memory_index, get_novelty_penalty, build_writer_
 
 
 def _freshness_bonus(article: dict) -> float:
-    """Retourne un bonus 0-1 selon l'âge de l'article (plus récent = plus haut)."""
+    """Returns a 0-1 bonus based on article age (more recent = higher bonus)."""
     fetched = article.get("fetched_at", "")
     published = article.get("published", fetched)
     try:
@@ -14,7 +14,7 @@ def _freshness_bonus(article: dict) -> float:
         else:
             dt = datetime.now(timezone.utc)
         age_hours = (datetime.now(timezone.utc) - dt).total_seconds() / 3600
-        # Bonus max si < 24h, décroit jusqu'à 0 à 168h (1 semaine)
+        # Max bonus if < 24h, decays to 0 at 168h (1 week)
         return max(0.0, 1.0 - age_hours / 168)
     except Exception:
         return 0.0
@@ -31,7 +31,7 @@ def selector_node(state: PipelineState) -> dict:
         print("[SELECTOR]   No article passed filter — using first raw article as fallback")
         memory_context = ""
     else:
-        # Score composite : score LLM (0-10) + bonus fraîcheur (0-1) - pénalité nouveauté (0-2)
+        # Composite score: LLM score (0-10) + freshness bonus (0-1) - novelty penalty (0-2)
         def _composite(a: dict) -> float:
             penalty = get_novelty_penalty(a, recent_runs)
             return a["score"] + _freshness_bonus(a) - penalty
@@ -43,7 +43,7 @@ def selector_node(state: PipelineState) -> dict:
         print(f"[SELECTOR]   Selected: \"{selected['title']}\"")
         print(f"             Score: {selected['score']}/10 + freshness: {bonus} - novelty penalty: {penalty}")
         if recent_runs:
-            print(f"             Memory: {len(recent_runs)} runs chargés")
+            print(f"             Memory: {len(recent_runs)} runs loaded")
 
         memory_context = build_writer_context(selected, recent_runs)
 

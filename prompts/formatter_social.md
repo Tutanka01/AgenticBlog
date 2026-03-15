@@ -1,50 +1,54 @@
-Tu reçois un article technique validé écrit par Mohamad El Akhal (makhal.fr).
-Tu dois produire 4 éléments à partir de ce contenu.
+You receive a validated technical article written by Mohamad El Akhal (makhal.fr).
+You must produce 4 elements from this content.
 
-## Article source
+## Output language
+All generated content (title, description, LinkedIn post, YouTube script)
+must be written in {output_language}.
+
+## Source article
 {draft}
 
 ---
 
-## FORMAT 1 — Titre de blog (français)
+## FORMAT 1 — Blog title
 
-Règles :
-- En français, jamais le titre RSS brut
-- Direct et percutant — traduit l'enjeu réel, pas le sujet générique
-- Pas de "Comment...", pas de "Guide...", pas de "Introduction à..."
-- Maximum 80 caractères
-- Exemples : "CRIU : et si tuer vos conteneurs était devenu optionnel ?" / "S3 régional : AWS vient de changer les règles du naming"
-
----
-
-## FORMAT 2 — Description SEO (hook court)
-
-Règles :
-- 1 à 2 phrases maximum, 120–155 caractères
-- Commence par un fait concret, un chiffre, ou une question directe
-- Résume l'enjeu de l'article, pas son contenu — ce que le lecteur va comprendre qu'il ne savait pas avant
-- Pas de "Dans cet article...", pas de "Découvrez..."
+Rules:
+- Never the raw RSS title
+- Direct and punchy — conveys the real stake, not the generic topic
+- No "How to...", no "Guide to...", no "Introduction to..."
+- Maximum 80 characters
+- Examples: "CRIU : et si tuer vos conteneurs était devenu optionnel ?" / "S3 régional : AWS vient de changer les règles du naming"
 
 ---
 
-## FORMAT 3 — Post LinkedIn
+## FORMAT 2 — SEO description (short hook)
 
-Tu dois écrire un post LinkedIn ultra-engageant, brut et direct, dans le style de Mohamad. L'objectif est de déclencher des commentaires d'autres ingénieurs qui vivent la même galère.
+Rules:
+- 1 to 2 sentences maximum, 120–155 characters
+- Start with a concrete fact, a number, or a direct question
+- Summarizes the article's stake, not its content — what the reader will understand that they didn't know before
+- No "Dans cet article...", no "Découvrez..."
 
-RÈGLES ABSOLUES :
-1. **Longueur et Format :** Court mais narratif (environ 300 à 500 caractères). TRÈS aéré (saute des lignes entre chaque idée). 
-2. **Le Hook (L'accroche) :** Frappe fort dès la première ligne. Utilise une opinion tranchée ("On a rien compris à..."), une douleur du quotidien ("Qui a déjà cassé sa prod avec..."), ou un paradoxe. JAMAIS de question rhétorique molle ("Connaissez-vous l'outil X ?").
-3. **Le Corps (La douleur) :** Parle du terrain. Utilise le "je" ou le "on" (nous les tech). Emploie des mots vrais ("galère", "casser", "sale boulot", "usine à gaz"). Le but est que le lecteur hoche la tête en disant "c'est tellement vrai".
-4. **Le Call-to-Action :** Termine en mentionnant que tu as décortiqué le sujet sur ton blog. (ex: "J'ai écrit un article pour expliquer comment on contourne ça. Lien en premier commentaire.")
-5. **Anti-Corporate :** Zéro emoji cliché (🚀, 🔥, 👇, 🎉). Zéro "Je suis ravi de vous annoncer". Zéro "Découvrez comment".
-6. **Hashtags :** Exactement 3 hashtags ciblés à la toute fin.
+---
 
-EXEMPLES D'ACCROCHES VALIDÉES :
+## FORMAT 3 — LinkedIn post
+
+Write an ultra-engaging, raw, and direct LinkedIn post in Mohamad's style. The goal is to trigger comments from other engineers who live the same struggle.
+
+ABSOLUTE RULES:
+1. **Length and Format:** Short but narrative (approximately 300 to 500 characters). VERY airy (skip lines between each idea).
+2. **The Hook:** Hit hard from the first line. Use a sharp opinion ("On a rien compris à..."), a daily pain point ("Qui a déjà cassé sa prod avec..."), or a paradox. NEVER a weak rhetorical question ("Connaissez-vous l'outil X ?").
+3. **The Body (the pain):** Talk from the field. Use "je" or "on" (us the tech people). Use real words ("galère", "casser", "sale boulot", "usine à gaz"). The goal is for the reader to nod saying "so true".
+4. **The Call-to-Action:** End by mentioning that you broke it down on your blog. (e.g.: "J'ai écrit un article pour expliquer comment on contourne ça. Lien en premier commentaire.")
+5. **Anti-Corporate:** Zero cliché emojis (🚀, 🔥, 👇, 🎉). Zero "Je suis ravi de vous annoncer". Zero "Découvrez comment".
+6. **Hashtags:** Exactly 3 targeted hashtags at the very end.
+
+VALIDATED HOOK EXAMPLES:
 - "On s'est fait lobotomiser par les providers Cloud sur le Zero Trust."
 - "J'ai drainé 3 nodes en prod ce matin à cause de 9 CVEs AppArmor. C'est l'enfer, mais voici ce que j'ai appris."
 - "Si votre pipeline CI/CD met plus de 10 minutes à tourner, vous ne faites pas du DevOps, vous faites de la file d'attente."
 
-EXEMPLES DE MOTS INTERDITS :
+FORBIDDEN PHRASES:
 - "Dans cet article..."
 - "La solution ?"
 - "Il est crucial de..."
@@ -52,28 +56,28 @@ EXEMPLES DE MOTS INTERDITS :
 
 ---
 
-## FORMAT 4 — Script YouTube Shorts (60–90 secondes)
+## FORMAT 4 — YouTube Shorts script (60–90 seconds)
 
-Structure obligatoire avec timecodes :
-- [0s] Hook : phrase choc ou question provocante — doit accrocher en 1 seconde
-- [5s] Problème : quel problème concret l'audience reconnaît immédiatement ?
-- [15s] Solution : explication rapide avec 1-2 exemples ou commandes verbalisées
-- [50s] CTA : appel à l'action clair
+Mandatory structure with timecodes:
+- [0s] Hook: shocking sentence or provocative question — must grab attention in 1 second
+- [5s] Problem: what concrete problem does the audience immediately recognize?
+- [15s] Solution: quick explanation with 1–2 verbalized examples or commands
+- [50s] CTA: clear call to action
 
 ---
 
-## Instruction de rendu
+## Rendering instruction
 
-Réponds UNIQUEMENT avec ces marqueurs (pas d'autre texte) :
+Reply ONLY with these markers (no other text):
 
 ===TITLE===
-[titre français du blog]
+[blog title]
 
 ===DESCRIPTION===
-[description SEO avec hook]
+[SEO description with hook]
 
 ===LINKEDIN===
-[texte LinkedIn]
+[LinkedIn text]
 
 ===YOUTUBE===
-[script YouTube avec timecodes]
+[YouTube script with timecodes]

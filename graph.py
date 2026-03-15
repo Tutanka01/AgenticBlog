@@ -1,6 +1,6 @@
 """
-StateGraph du pipeline de contenu.
-Routing : scraper → filter → selector → fetcher → writer ↔ critic (max 3 iter) → formatter → output_saver
+Content pipeline StateGraph.
+Routing: scraper → filter → selector → fetcher → writer ↔ critic (max 3 iter) → formatter → output_saver
 """
 import sqlite3
 from pathlib import Path
@@ -20,11 +20,11 @@ from agents.output_saver import output_saver_node
 
 
 def should_continue_writing(state: PipelineState) -> str:
-    """Conditional edge après critic_node : reboucle sur writer ou passe au formatter."""
+    """Conditional edge after critic_node: loops back to writer or proceeds to formatter."""
     if state["critique_approved"]:
         return "formatter"
     if state["iteration_count"] >= 3:
-        return "formatter"   # Force exit après MAX_CRITIQUE_ITERATIONS
+        return "formatter"   # Force exit after MAX_CRITIQUE_ITERATIONS
     return "writer"
 
 

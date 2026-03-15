@@ -1,7 +1,7 @@
 """
-Client OpenAI partagé — compatible Ollama, llama.cpp et OpenRouter.
-OpenRouter exige les headers HTTP-Referer et X-Title pour l'attribution.
-Tous les agents importent `llm_client` depuis ce module.
+Shared OpenAI client — compatible with Ollama, llama.cpp, and OpenRouter.
+OpenRouter requires HTTP-Referer and X-Title headers for attribution.
+All agents import `llm_client` from this module.
 """
 from openai import OpenAI
 from config import (

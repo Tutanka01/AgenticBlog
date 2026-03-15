@@ -1,6 +1,6 @@
 """
-Point d'entrée du pipeline de contenu.
-Usage : python main.py [--resume <run_id>] [--list] [--category <cat>]
+Pipeline entry point.
+Usage: python main.py [--resume <run_id>] [--list] [--category <cat>] [--lang <lang>]
 """
 import time
 import uuid
@@ -9,7 +9,7 @@ from datetime import date
 from pathlib import Path
 
 from graph import graph
-from config import CHECKPOINT_DB, CATEGORIES, DEFAULT_CATEGORY
+from config import CHECKPOINT_DB, CATEGORIES, DEFAULT_CATEGORY, OUTPUT_LANGUAGE_LABELS, DEFAULT_OUTPUT_LANGUAGE
 
 
 def list_recent_runs() -> list[str]:
@@ -30,7 +30,7 @@ def list_recent_runs() -> list[str]:
         return []
 
 
-def run_pipeline(run_id: str | None = None, category: str = DEFAULT_CATEGORY) -> None:
+def run_pipeline(run_id: str | None = None, category: str = DEFAULT_CATEGORY, lang: str = DEFAULT_OUTPUT_LANGUAGE) -> None:
     """Execute or resume the pipeline."""
     start = time.time()
 
@@ -41,7 +41,8 @@ def run_pipeline(run_id: str | None = None, category: str = DEFAULT_CATEGORY) ->
         print(f"\nResuming run — id: {run_id}\n")
 
     cat_config = CATEGORIES.get(category, CATEGORIES[DEFAULT_CATEGORY])
-    print(f"Category: [{cat_config['label']}]\n")
+    lang_label = OUTPUT_LANGUAGE_LABELS.get(lang, lang)
+    print(f"Category: [{cat_config['label']}] | Language: [{lang_label}]\n")
 
     run_date = date.today().isoformat()
     Path("memory").mkdir(exist_ok=True)
@@ -62,6 +63,7 @@ def run_pipeline(run_id: str | None = None, category: str = DEFAULT_CATEGORY) ->
         "run_date": run_date,
         "total_tokens_used": 0,
         "active_category": category,
+        "output_language": lang,
     }
 
     config = {"configurable": {"thread_id": run_id}}
@@ -84,6 +86,12 @@ def main() -> None:
         default=DEFAULT_CATEGORY,
         help=f"Content category (default: {DEFAULT_CATEGORY}). Choices: {', '.join(CATEGORIES.keys())}"
     )
+    parser.add_argument(
+        "--lang", "-l",
+        choices=list(OUTPUT_LANGUAGE_LABELS.keys()),
+        default=DEFAULT_OUTPUT_LANGUAGE,
+        help=f"Output language for generated content (default: {DEFAULT_OUTPUT_LANGUAGE}). Choices: {', '.join(OUTPUT_LANGUAGE_LABELS.keys())}"
+    )
     args = parser.parse_args()
 
     if args.list:
@@ -97,7 +105,7 @@ def main() -> None:
         return
 
     if args.resume:
-        run_pipeline(run_id=args.resume, category=args.category)
+        run_pipeline(run_id=args.resume, category=args.category, lang=args.lang)
         return
 
     # Auto-detect last run and offer to resume
@@ -106,10 +114,10 @@ def main() -> None:
         last = recent[0]
         answer = input(f"Last run found: {last}\nResume it? [y/N] ").strip().lower()
         if answer == "y":
-            run_pipeline(run_id=last, category=args.category)
+            run_pipeline(run_id=last, category=args.category, lang=args.lang)
             return
 
-    run_pipeline(category=args.category)
+    run_pipeline(category=args.category, lang=args.lang)
 
 
 if __name__ == "__main__":

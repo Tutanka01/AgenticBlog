@@ -1,7 +1,7 @@
 """
-State schema partagé entre tous les agents.
-ACPMessage : message structuré inter-agents (pattern Agent Communication Protocol).
-PipelineState : state complet du graph LangGraph.
+Shared state schema for all agents.
+ACPMessage: structured inter-agent message (Agent Communication Protocol pattern).
+PipelineState: full graph state for LangGraph.
 """
 import operator
 from typing import Annotated, TypedDict
@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 
 class ACPMessage(BaseModel):
-    """Message structuré ACP-style entre agents."""
+    """Structured ACP-style inter-agent message."""
     sender: str
     receiver: str
     msg_type: str   # "task" | "result" | "feedback" | "approve" | "reject"
@@ -18,7 +18,7 @@ class ACPMessage(BaseModel):
 
 
 class PipelineState(TypedDict):
-    # Messages inter-agents (append-only via operator.add)
+    # Inter-agent messages (append-only via operator.add)
     messages: Annotated[list[ACPMessage], operator.add]
 
     # Articles
@@ -26,22 +26,23 @@ class PipelineState(TypedDict):
     filtered_articles: list[dict]   # raw_articles + score, reason
     selected_article: dict
 
-    # Cycle write / critique
+    # Write / critique cycle
     draft: str
     critic_feedback: str
-    iteration_count: int            # incrémenté par writer, max=MAX_CRITIQUE_ITERATIONS
+    iteration_count: int            # incremented by writer, max=MAX_CRITIQUE_ITERATIONS
     critique_approved: bool
 
-    # Outputs finaux
+    # Final outputs
     blog_post: str
     linkedin_post: str
     youtube_script: str
 
-    # Mémoire éditoriale
-    memory_context: str    # Contexte des articles passés, injecté dans writer
+    # Editorial memory
+    memory_context: str    # Context from past articles, injected into writer
 
     # Meta
     run_id: str
     run_date: str
     total_tokens_used: int
-    active_category: str   # catégorie active du run ("security", "infra", "ai", etc.)
+    active_category: str   # active category for this run ("security", "infra", "ai", etc.)
+    output_language: str   # "fr" | "en" | "ar" — controls generated content language
