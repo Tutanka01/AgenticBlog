@@ -523,6 +523,55 @@ export default function OutputsView({ runs, selectedRunId, onSelectRun, runData,
                     valueColor={criticColor}
                   />
                 </div>
+
+                {/* Multi-critic debate section */}
+                <div className="mt-4">
+                  <p className="label mb-2.5">Multi-Critic Debate</p>
+                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    {/* Security flag */}
+                    <div
+                      className="glass-card p-3"
+                      style={
+                        metadata?.security_flag
+                          ? { borderColor: 'rgba(239,68,68,0.3)', backgroundColor: 'rgba(239,68,68,0.05)' }
+                          : {}
+                      }
+                    >
+                      <p className="label mb-1.5">Security</p>
+                      <p
+                        className="mono text-[13px] font-medium"
+                        style={{ color: metadata?.security_flag ? '#FCA5A5' : '#22C55E' }}
+                      >
+                        {metadata?.security_flag ? 'flagged' : 'clean'}
+                      </p>
+                    </div>
+                    {/* Final verdict */}
+                    <div className="glass-card p-3">
+                      <p className="label mb-1.5">Verdict</p>
+                      <p
+                        className="mono text-[13px] font-medium"
+                        style={{ color: metadata?.critique_approved ? '#22C55E' : '#F59E0B' }}
+                      >
+                        {metadata?.critique_approved ? 'approved' : 'max iter'}
+                      </p>
+                    </div>
+                    {/* Fetch method */}
+                    <div className="glass-card p-3">
+                      <p className="label mb-1.5">Fetch</p>
+                      <p className="mono text-[13px]" style={{ color: 'var(--text-primary)' }}>
+                        {metadata?.fetch_method || '—'}
+                      </p>
+                    </div>
+                    {/* Word count */}
+                    <div className="glass-card p-3">
+                      <p className="label mb-1.5">Words</p>
+                      <p className="mono text-[13px]" style={{ color: 'var(--text-primary)' }}>
+                        {metadata?.word_count || blogWordCount}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {metadata?.fetch_method && (
                   <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-3">
                     <div className="glass-card p-4">

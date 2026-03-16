@@ -23,7 +23,15 @@ function subtitleFor(node, state) {
     return `${method} · ${meta.chars || 0} chars`;
   }
   if (node === 'writer') return `iter ${meta.iteration || '?'} / 3 · ${meta.words || 0}w`;
-  if (node === 'critic') return `${meta.score || '?'} / 10 · ${meta.approved ? 'approved' : 'rejected'}`;
+  if (node === 'critic') {
+    const score = meta.score || '?';
+    const verdict = meta.approved ? 'approved' : 'rejected';
+    const pCount = meta.num_personas || meta.personas?.length || '';
+    const personaStr = pCount ? ` · ${pCount}p` : '';
+    const stagnation = meta.stagnation_count > 0 ? ` · stgn×${meta.stagnation_count}` : '';
+    const secFlag = meta.security_flag ? ' · SEC!' : '';
+    return `${score}/10 · ${verdict}${personaStr}${stagnation}${secFlag}`;
+  }
   if (node === 'formatter') return '3 outputs';
   if (node === 'saver') return meta.run_id ? `run_id: ${meta.run_id}` : message;
   return message;
@@ -33,7 +41,7 @@ export default function PipelineView({ nodeStates, logs, elapsedSeconds, onClear
   const [drawerNode, setDrawerNode] = useState('');
 
   const subtitles = useMemo(() => {
-    const names = ['scraper', 'filter', 'selector', 'fetcher', 'critic', 'writer', 'formatter', 'saver'];
+    const names = ['scraper', 'filter', 'selector', 'fetcher', 'writer', 'critic', 'formatter', 'saver'];
     return names.reduce((acc, node) => {
       acc[node] = subtitleFor(node, nodeStates.get(node));
       return acc;

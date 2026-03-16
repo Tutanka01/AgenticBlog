@@ -25,6 +25,8 @@ def output_saver_node(state: PipelineState) -> dict:
         metadata = {
             "run_id": run_id,
             "run_date": run_date,
+            "active_category": state.get("active_category", "infra"),
+            "output_language": state.get("output_language", "en"),
             "article_selected": {
                 "title": article.get("title", ""),
                 "url": article.get("url", ""),

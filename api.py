@@ -27,6 +27,7 @@ LOG_PATTERN = re.compile(r"\[(\w+)\]\s+(.+)")
 NODE_MAP = {
     "output": "saver",
     "output_saver": "saver",
+    "multi_critic": "critic",
 }
 
 RUNNING_KEYWORDS = ("fetching", "scoring", "starting", "trying", "saving")
@@ -39,6 +40,9 @@ DONE_KEYWORDS = (
     "done",
     "approved",
     "saved",
+    "draft v",        # writer: "Draft v1 — 969 words"
+    "linkedin",       # formatter: "Blog: N words | LinkedIn: N chars | YouTube: ~Ns"
+    "memory updated", # saver: "Memory updated — MEMORY.md + topics/"
 )
 
 
@@ -106,7 +110,25 @@ class RunManager:
             score = re.search(r"Score:\s*(\d+)\/10", message, re.IGNORECASE)
             if score:
                 meta["score"] = int(score.group(1))
-            meta["approved"] = "approved" in message.lower()
+            # "APPROVED" alone = True; "NOT approved" = False
+            meta["approved"] = (
+                bool(re.search(r"\bapproved\b", message, re.IGNORECASE))
+                and "not approved" not in message.lower()
+            )
+            personas_match = re.search(r"Personas:\s*(.+)", message, re.IGNORECASE)
+            if personas_match:
+                meta["personas"] = [p.strip() for p in personas_match.group(1).split(",")]
+            stagnation_match = re.search(r"stagnation[×x](\d+)", message, re.IGNORECASE)
+            if stagnation_match:
+                meta["stagnation_count"] = int(stagnation_match.group(1))
+            if "security flag" in message.lower():
+                meta["security_flag"] = True
+            rounds_match = re.search(r"Running\s+(\d+)\s+debate\s+rounds", message, re.IGNORECASE)
+            if rounds_match:
+                meta["debate_rounds"] = int(rounds_match.group(1))
+            num_personas_match = re.search(r"(\d+)\s+personas", message, re.IGNORECASE)
+            if num_personas_match:
+                meta["num_personas"] = int(num_personas_match.group(1))
         elif node == "formatter":
             if ints:
                 meta["numbers"] = ints
@@ -125,9 +147,16 @@ class RunManager:
                 meta["ints"] = ints
         return meta
 
+    # Patterns that contain "failed" but are graceful recoveries, not real errors
+    _RECOVERY_PATTERNS = (
+        "— using fallback",
+        "— auto-approving",
+        "synthesizing with empty",
+    )
+
     def _derive_status(self, message: str) -> str:
         lower = message.lower()
-        if "error" in lower or "failed" in lower:
+        if ("error" in lower or "failed" in lower) and not any(p in lower for p in self._RECOVERY_PATTERNS):
             return "error"
         if any(k in lower for k in DONE_KEYWORDS):
             return "done"
@@ -326,6 +355,7 @@ def _normalize_metadata(meta: dict[str, Any], run_dir: Path) -> dict[str, Any]:
         },
         "word_count": word_count or 0,
         "fetch_method": meta.get("fetch_method", ""),
+        "security_flag": meta.get("security_flag", False),
     }
 
 
@@ -442,6 +472,21 @@ async def stream_run(
                 run_manager.listeners.remove(q)
 
     return EventSourceResponse(event_generator())
+
+
+class BlogPatch(BaseModel):
+    content: str = ""
+    blog_post: str = ""
+
+
+@app.patch("/api/runs/{run_id}/blog")
+async def patch_blog(run_id: str, payload: BlogPatch) -> dict[str, Any]:
+    run_dir = _find_run_dir(run_id)
+    if not run_dir:
+        raise HTTPException(status_code=404, detail="Run not found")
+    text = payload.content or payload.blog_post or ""
+    (run_dir / "blog_post.md").write_text(text, encoding="utf-8")
+    return {"status": "saved"}
 
 
 @app.delete("/api/runs/{run_id}")

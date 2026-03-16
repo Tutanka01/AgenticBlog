@@ -110,11 +110,19 @@ Full list in [`docs/setup.md`](docs/setup.md).
 
 ## Web interface (optional)
 
-```bash
-uvicorn api:app --port 8000 --reload   # Terminal 1
-cd frontend && npm ci && npm run dev   # Terminal 2 → http://localhost:5173
+A React dashboard to run the pipeline, watch agents execute in real time, and browse outputs.
 
-docker-compose up                      # or Docker → http://localhost:3000
+- **Pipeline view** — live node graph, per-agent status, debate panel details, log console
+- **Outputs view** — tabbed blog/LinkedIn/YouTube preview with inline editor and one-click copy
+- **History view** — past runs table with search, category filter, resume and delete actions
+
+```bash
+# Dev mode
+uvicorn api:app --port 8000 --reload   # Terminal 1: backend + SSE stream
+cd frontend && npm ci && npm run dev   # Terminal 2: Vite → http://localhost:5173
+
+# Docker (production build)
+docker-compose up                      # → http://localhost:3000
 ```
 
 ---

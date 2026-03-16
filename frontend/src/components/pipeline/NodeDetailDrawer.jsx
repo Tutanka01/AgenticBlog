@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { AlertTriangle, Users, X } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 
 const STATUS_STYLE = {
@@ -117,6 +117,80 @@ export default function NodeDetailDrawer({ open, node, state, logs, onClose }) {
               <X size={14} />
             </button>
           </div>
+
+          {/* Debate Panel — only for the multi-critic node */}
+          {node === 'critic' && (
+            <section
+              className="mb-4 rounded-md border p-3"
+              style={{ borderColor: 'var(--bg-border)', backgroundColor: 'var(--bg-elevated)' }}
+            >
+              <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>
+                Debate Panel
+              </p>
+
+              {/* Security flag banner */}
+              {state?.meta?.security_flag && (
+                <div
+                  className="mb-3 flex items-center gap-2 rounded-md border px-3 py-2 text-[11px]"
+                  style={{ borderColor: 'rgba(239,68,68,0.4)', backgroundColor: 'rgba(239,68,68,0.07)', color: '#FCA5A5' }}
+                >
+                  <AlertTriangle size={12} style={{ flexShrink: 0 }} />
+                  <span style={{ fontWeight: 600 }}>Security flag</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>— dangerous snippet detected</span>
+                </div>
+              )}
+
+              {/* Personas */}
+              {state?.meta?.personas?.length > 0 && (
+                <div className="mb-3">
+                  <div className="mb-1.5 flex items-center gap-1.5">
+                    <Users size={10} style={{ color: 'var(--text-muted)' }} />
+                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Personas</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {state.meta.personas.map((name, i) => (
+                      <span
+                        key={i}
+                        className="rounded px-2 py-0.5 text-[11px]"
+                        style={{ backgroundColor: 'rgba(139,92,246,0.12)', color: '#C4B5FD' }}
+                      >
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Debate config row */}
+              <div className="flex flex-wrap gap-4 mono text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                {state?.meta?.debate_rounds != null && (
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>rounds </span>
+                    <span>{state.meta.debate_rounds}</span>
+                  </div>
+                )}
+                {state?.meta?.num_personas != null && (
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>personas </span>
+                    <span>{state.meta.num_personas}</span>
+                  </div>
+                )}
+                {state?.meta?.stagnation_count > 0 && (
+                  <div>
+                    <span style={{ color: '#F59E0B' }}>stagnation×{state.meta.stagnation_count}</span>
+                  </div>
+                )}
+                {state?.meta?.score != null && (
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>score </span>
+                    <span style={{ color: state.meta.score >= 7 ? '#22C55E' : state.meta.score >= 5 ? '#F59E0B' : '#EF4444' }}>
+                      {state.meta.score}/10
+                    </span>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* Timeline */}
           {startedAt && (

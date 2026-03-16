@@ -105,6 +105,14 @@ function PipelineNode({ data }) {
             style={{ backgroundColor: visual.dot }}
           />
           <span>{data.label}</span>
+          {data.label === 'critic' && (
+            <span
+              className="rounded px-1 text-[8px] font-medium"
+              style={{ backgroundColor: 'rgba(139,92,246,0.15)', color: '#A78BFA', letterSpacing: '0.03em', fontWeight: 500 }}
+            >
+              debate
+            </span>
+          )}
           {status === 'running' && <Loader2 size={10} className="animate-spin" style={{ color: '#8B5CF6' }} />}
         </div>
 
@@ -174,7 +182,7 @@ export default function NodeGraph({ nodeStates, subtitles, onNodeClick }) {
       draggable: false,
       selectable: false,
       zIndex: -1,
-      data: { label: 'critic loop · max 3×', width: 200, height: 264 },
+      data: { label: 'multi-critic · debate · max 3×', width: 200, height: 264 },
     };
 
     const pipelineNodes = ORDERED_NODES.map((id) => ({

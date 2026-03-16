@@ -31,10 +31,13 @@ export function useSSE(url) {
         if (payload?.node) {
           setNodeStates((prev) => {
             const next = new Map(prev);
+            const existing = prev.get(payload.node) || {};
+            // Merge meta across events so data from earlier logs (e.g. persona names)
+            // is preserved when the final score event arrives.
             next.set(payload.node, {
               status: payload.status,
               message: payload.message,
-              meta: payload.meta || {},
+              meta: { ...(existing.meta || {}), ...(payload.meta || {}) },
               ts: payload.ts,
             });
             return next;
@@ -66,6 +69,7 @@ export function useSSE(url) {
 
   const resetLogs = () => {
     setLogs([]);
+    setNodeStates(new Map());
   };
 
   return {
