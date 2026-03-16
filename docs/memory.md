@@ -315,11 +315,14 @@ Bank = `topics/`) but *why a draft failed* (Meta-Guideline Bank = `lessons/`).
 ## 2026-03-15 | iterations: 3 | score: 7.2 | weight: 1.00
 - Article: GGML and llama.cpp join HF...
 - Critique: tone too formal in the introduction; lacks concrete CLI examples
+- Personas: FinOps Architect, Platform Engineer, Developer Educator
 
 ## 2026-03-10 | iterations: 2 | score: 7.8 | weight: 0.85
 - Article: OpenAI o3 benchmarks...
 - Critique: structure too linear, hook too neutral
 ```
+
+The `- Personas:` line lists the **roles** (not names) of the 3 personas that produced the critique. This allows future analysis of which persona profiles are most useful per category. It is omitted for runs that predate `multi_critic_node`.
 
 **Usage-based decay (not time-based):** on each run in the same category, all weights are
 multiplied by `LESSON_DECAY_FACTOR = 0.85`. After ~17 runs in the same category, a lesson
@@ -598,3 +601,51 @@ inspires the `store_lesson` function in AgenticBlog.
 \[14\] Zhao, S. et al. (2025). **Memory in the Age of AI Agents: A Survey**. *arXiv:2512.13564*.
 Survey of 47 authors identifying Strategy-based Experiential Memory as the missing component
 in most agent pipelines — storing abstract rules derived from failures, not just raw events.
+
+---
+
+### Multi-Persona Debate Critic — Foundations (references \[15\]–\[18\])
+
+The `multi_critic_node` in `agents/multi_critic.py` replaces the single-critic evaluation
+with a structured 3-persona debate. The design choices are grounded in the following work:
+
+\[15\] Liang, T. et al. (2024). **D3: Diverse Multi-Role Debate for LLM Evaluation**.
+*arXiv:2410.04663*. <https://arxiv.org/abs/2410.04663>
+
+Introduces role-specialized agents (advocates + judge) for structured critique tasks.
+Key finding: multi-role debate consistently outperforms a single LLM evaluator on
+correctness, completeness, and calibration, especially when roles are assigned distinct
+evaluation axes (technical accuracy vs. style vs. structure). AgenticBlog directly applies
+this pattern: personas are assigned orthogonal concerns (e.g., technical depth, dev
+experience, business impact) rather than all evaluating the same dimension.
+
+\[16\] Liu, Y. et al. (2025). **PersonaAgent: Test-Time Persona Generation for Aligned
+LLM Agents**. *arXiv:2506.06254*. <https://arxiv.org/abs/2506.06254>
+
+Demonstrates that personas generated at inference time from context (task description,
+domain, constraints) produce more aligned and relevant behavior than personas pre-defined
+at design time. AgenticBlog applies this principle: the persona generator receives the
+article title, category, and a content excerpt — personas are never hardcoded in production,
+but contextually invented by the LLM for each article. The `_FALLBACK_PERSONAS` list exists
+only as an error-handling safety net.
+
+\[17\] Li, J. et al. (2025). **DEBATE: A Benchmark for Multi-Agent Debate Quality in LLMs**.
+*arXiv:2510.25110*. <https://arxiv.org/abs/2510.25110>
+
+Identifies **premature convergence** as the principal failure mode of multi-agent debate:
+when agents share similar perspectives, they quickly agree — eliminating the diversity
+that makes debate valuable. The benchmark shows that enforcing orthogonality constraints
+(personas must represent genuinely different concerns) reduces convergence by 40% and
+improves critique quality scores. This is the direct motivation for the `persona_generator.md`
+prompt's orthogonality constraint: *"The 3 personas MUST have genuinely different primary
+concerns. Do NOT generate 3 variations of 'senior engineer'."*
+
+\[18\] Perplexity AI (February 2026). **Model Council: Multi-Agent Review in Production**.
+Technical blog post. Internal reference (not arXiv).
+
+Production system using multi-agent debate for answer quality review. Reports 30% fewer
+factual errors vs. a single reviewer at matched cost, achieved via model tiering: a cheaper
+model handles the debate rounds while a higher-capability model handles synthesis. This is
+the direct inspiration for the `DEBATE_MODEL` env var in AgenticBlog: persona generation
+(1 call) and synthesis (1 call) use `LLM_MODEL`; the 6 debate-round calls default to
+`DEBATE_MODEL`, which can be set to a cheaper/faster model without degrading final output quality.

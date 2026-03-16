@@ -8,13 +8,13 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from state import PipelineState
-from config import CHECKPOINT_DB
+from config import CHECKPOINT_DB, MAX_CRITIQUE_ITERATIONS
 from agents.scraper import scraper_node
 from agents.filter import filter_node
 from agents.selector import selector_node
 from agents.fetcher import fetcher_node
 from agents.writer import writer_node
-from agents.critic import critic_node
+from agents.multi_critic import multi_critic_node
 from agents.formatter import formatter_node
 from agents.output_saver import output_saver_node
 
@@ -23,7 +23,7 @@ def should_continue_writing(state: PipelineState) -> str:
     """Conditional edge after critic_node: loops back to writer or proceeds to formatter."""
     if state["critique_approved"]:
         return "formatter"
-    if state["iteration_count"] >= 3:
+    if state["iteration_count"] >= MAX_CRITIQUE_ITERATIONS:
         return "formatter"   # Force exit after MAX_CRITIQUE_ITERATIONS
     return "writer"
 
@@ -36,7 +36,7 @@ def build_graph():
     builder.add_node("selector", selector_node)
     builder.add_node("fetcher", fetcher_node)
     builder.add_node("writer", writer_node)
-    builder.add_node("critic", critic_node)
+    builder.add_node("critic", multi_critic_node)
     builder.add_node("formatter", formatter_node)
     builder.add_node("output_saver", output_saver_node)
 

@@ -15,6 +15,13 @@ LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "90"))
 OPENROUTER_SITE_URL  = os.getenv("OPENROUTER_SITE_URL",  "https://github.com/Tutanka01/AgenticBlog")
 OPENROUTER_APP_NAME  = os.getenv("OPENROUTER_APP_NAME",  "AgenticBlog")
 
+# ── Multi-critic debate ───────────────────────────────────────────────────────
+# DEBATE_MODEL: cheaper/faster model for the 6 debate-round calls.
+# Defaults to LLM_MODEL; override with e.g. "google/gemini-flash-lite" to cut cost.
+DEBATE_MODEL         = os.getenv("DEBATE_MODEL", LLM_MODEL)
+NUM_DEBATE_PERSONAS  = int(os.getenv("NUM_DEBATE_PERSONAS", "3"))
+DEBATE_ROUNDS        = int(os.getenv("DEBATE_ROUNDS",       "2"))
+
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 FILTER_THRESHOLD        = int(os.getenv("FILTER_THRESHOLD",        "6"))
 MAX_ARTICLES_TO_FETCH   = int(os.getenv("MAX_ARTICLES_TO_FETCH",   "40"))

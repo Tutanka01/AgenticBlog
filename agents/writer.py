@@ -1,3 +1,5 @@
+import re
+
 from state import PipelineState, ACPMessage
 from config import LLM_MODEL, WRITING_STYLE, PROMPTS_DIR, OUTPUT_LANGUAGE_LABELS
 from llm import llm_client
@@ -15,6 +17,53 @@ def writer_node(state: PipelineState) -> dict:
     article = state["selected_article"]
     feedback = state.get("critic_feedback", "")
     iteration = state.get("iteration_count", 0) + 1
+
+    # On revision iterations, enrich feedback with the debate panel's Round 1 context.
+    # The writer only receives the synthesized corrections (2-3 bullets) — without
+    # the personas' actual arguments, it can't understand *why* or *how deep* to go.
+    debate_transcript = state.get("debate_transcript", "")
+    stagnation_count = state.get("stagnation_count", 0)
+
+    if feedback and debate_transcript and iteration > 1:
+        round1_match = re.search(
+            r"## Round 1\n\n(.*?)(?:\n\n---\n\n## Round 2|\Z)",
+            debate_transcript,
+            re.DOTALL,
+        )
+        if round1_match:
+            round1_text = round1_match.group(1)
+            # Split by persona section (### headers), keep max 6 lines per persona
+            sections = re.split(r"\n(?=### )", round1_text)
+            excerpts = []
+            for section in sections[:3]:
+                lines = [l for l in section.strip().splitlines() if l.strip()]
+                excerpt = "\n".join(lines[:7])  # heading + up to 6 bullets
+                excerpts.append(excerpt[:450])
+            if excerpts:
+                panel_context = "\n\n".join(excerpts)
+                feedback = (
+                    f"{feedback}\n\n"
+                    f"**Arguments détaillés du panel d'experts (Round 1) :**\n\n"
+                    f"{panel_context}"
+                )
+
+    # When the score hasn't improved across ≥2 consecutive iterations, switch strategy:
+    # stop guessing at technical corrections and focus on what the LLM can reliably fix.
+    if stagnation_count >= 1 and feedback and iteration > 1:
+        feedback = (
+            f"{feedback}\n\n"
+            f"**⚠ STAGNATION DETECTED — Strategy change required (iteration {iteration}):**\n"
+            f"The previous revision did not improve the score. Do NOT attempt to rewrite technical "
+            f"claims you cannot verify from the source article. Instead:\n"
+            f"1. Anchor all technical assertions directly to what the source article states — "
+            f"use formulations like 'selon l'article source' / 'as the upstream documentation notes' "
+            f"rather than asserting your own understanding.\n"
+            f"2. If a technical detail was flagged as potentially incorrect and you cannot verify it "
+            f"from the source, add: `> ⚠ This behavior may vary by version — consult official docs before applying.`\n"
+            f"3. Focus your revision on tone, hook quality, and structure — these can be improved "
+            f"without risking new factual errors.\n"
+            f"4. Do NOT invent examples or commands not present in the source article."
+        )
 
     lang_code = state.get("output_language", "en")
     output_language = OUTPUT_LANGUAGE_LABELS.get(lang_code, "English")

@@ -142,11 +142,15 @@ def _parse_lessons(content: str) -> list[dict]:
                 "weight": float(m.group(4)),
                 "article_title": "",
                 "critique_text": "",
+                "personas_used": [],
             }
         elif current and line.startswith("- Article:"):
             current["article_title"] = line[len("- Article:"):].strip()
         elif current and line.startswith("- Critique:"):
             current["critique_text"] = line[len("- Critique:"):].strip()
+        elif current and line.startswith("- Personas:"):
+            raw = line[len("- Personas:"):].strip()
+            current["personas_used"] = [p.strip() for p in raw.split(",") if p.strip()]
 
     if current:
         lessons.append(current)
@@ -158,11 +162,15 @@ def _build_lessons_file(category: str, lessons: list[dict]) -> str:
     header = f"# {category.capitalize()} — Lessons learned\n\n"
     entries = []
     for lesson in lessons:
+        personas_line = ""
+        if lesson.get("personas_used"):
+            personas_line = f"- Personas: {', '.join(lesson['personas_used'])}\n"
         entry = (
             f"## {lesson['date_str']} | iterations: {lesson['iteration_count']} | "
             f"score: {lesson['score']} | weight: {lesson['weight']:.2f}\n"
             f"- Article: {lesson['article_title']}\n"
             f"- Critique: {lesson['critique_text']}\n"
+            f"{personas_line}"
         )
         entries.append(entry)
     return header + "\n".join(entries)
@@ -258,10 +266,16 @@ def store_lesson(state: "PipelineState") -> None:  # type: ignore[name-defined]
     if not f.exists():
         f.write_text(f"# {category.capitalize()} — Lessons learned\n\n", encoding="utf-8")
 
+    # Collect persona roles used in this run (from multi_critic_node state)
+    debate_personas = state.get("debate_personas") or []
+    personas_used = [p.get("role", p.get("name", "?")) for p in debate_personas]
+    personas_line = f"- Personas: {', '.join(personas_used)}\n" if personas_used else ""
+
     new_entry = (
         f"## {run_date} | iterations: {iteration_count} | score: {score} | weight: 1.00\n"
         f"- Article: {title[:60]}\n"
         f"- Critique: {critic_feedback}\n"
+        f"{personas_line}"
     )
 
     existing = f.read_text(encoding="utf-8")

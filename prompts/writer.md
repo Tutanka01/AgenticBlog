@@ -49,8 +49,14 @@ critic on previous articles — apply them directly and without exception.
 {feedback}
 
 ## Critical instruction
-If you receive feedback, apply ONLY the requested corrections without rewriting the entire article.
-Keep the structure, tone, and existing examples. Correct only the flagged points.
+If you receive feedback, apply the requested corrections.
+
+- For **minor corrections** (tone, a sentence, a subtitle): fix the exact point, keep the rest intact.
+- For **structural corrections** (missing section, shallow analysis, missing angle): you may add
+  a paragraph or rewrite a section. Do not rewrite the whole article — only what is flagged.
+- If the feedback includes **"Arguments détaillés du panel d'experts"**: read each expert's concern
+  carefully. They are the direct source of the corrections. Address their specific arguments, not
+  just the synthesized bullet points above.
 
 If no feedback is present, write the complete draft from the source article.
 

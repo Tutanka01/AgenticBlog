@@ -77,7 +77,7 @@ The `fetch_method` field records the strategy used (`"direct"`, `"jina"`, `"rss_
 ## writer
 
 **File:** `agents/writer.py`
-**Reads:** `selected_article` (including `full_content`), `critic_feedback`, `iteration_count`, `output_language`, `prompts/writer.md`
+**Reads:** `selected_article` (including `full_content`), `critic_feedback`, `iteration_count`, `stagnation_count`, `debate_transcript`, `output_language`, `prompts/writer.md`
 **Writes:** `draft`, `iteration_count`, `total_tokens_used`, `messages`
 
 Uses `full_content` over `summary` to feed the prompt — the LLM gets the actual article content, not just the RSS summary.
@@ -90,25 +90,131 @@ Uses `temperature=0.7` (more creative than other agents which use `LLM_TEMPERATU
 
 **Title constraints:** the `writer.md` prompt enforces strict limits on headings — H1 max 60 characters, H2/H3 max 40 characters. Subtitles must name a concept, not summarize an entire paragraph.
 
+**Stagnation-adaptive strategy:** when `stagnation_count >= 1` (the previous iteration did not improve the score), the writer receives an additional instruction block that changes its revision approach. Instead of attempting to fix technical claims it may not have enough information to correct accurately, it is instructed to:
+1. Anchor technical assertions to what the source article explicitly states
+2. Add uncertainty caveats (`> ⚠ behavior may vary — consult official docs`) on claims previously flagged as potentially incorrect
+3. Focus the revision energy on tone, hook quality, and structure (criteria the LLM can reliably improve without external knowledge)
+4. Not invent commands or examples absent from the source article
+
+This is grounded in the finding that LLMs cannot reliably self-correct on factual claims without external verified information (Huang et al., NeurIPS 2023) — the adaptive strategy stops the writer from hallucinating "corrections" that may introduce new errors.
+
 ---
 
-## critic
+## critic — multi-persona debate (`multi_critic_node`)
 
-**File:** `agents/critic.py`
-**Reads:** `draft`, `selected_article` (url + source), `output_language`, `prompts/critic.md`
-**Writes:** `critique_approved`, `critic_feedback`, `total_tokens_used`, `messages`
+**File:** `agents/multi_critic.py`
+**Reads:** `draft`, `selected_article`, `output_language`, `debate_personas` (optional — cached), `best_draft`, `best_score`, `stagnation_count`, `prompts/persona_generator.md`, `prompts/debate_round.md`, `prompts/debate_synthesizer.md`
+**Writes:** `critique_approved`, `critic_feedback`, `debate_personas`, `debate_transcript`, `security_flag`, `best_draft`, `best_score`, `stagnation_count`, `total_tokens_used`, `messages`
 
-Evaluates the draft on 4 weighted criteria (accuracy, clarity, structure, added value). Returns JSON `{approved, score, issues, specific_corrections}`.
+> `agents/critic.py` (single-critic, monolithic) is kept untouched as rollback reference.
+> `graph.py` now points to `multi_critic_node` — the node is still registered as `"critic"`
+> so no edge wiring changes are needed.
 
-- `approved = true` if `score >= 7`
-- `critic_feedback` contains the `specific_corrections` (precise instructions for the writer)
-- **Fallback:** if JSON is unparseable, auto-approve to avoid an infinite loop
+### How it works
 
-The conditional edge in `graph.py` loops back to `writer` if `approved == false` and `iteration_count < MAX_CRITIQUE_ITERATIONS`.
+Instead of a single LLM call evaluating the draft, three context-aware personas debate it across 2 rounds. A **judge who knows Mohamad's editorial standards** then scores the draft against his 4 criteria, using the debate as evidence.
 
-**Handling recent features:** the critic receives the source URL and source name of the article (`{source_url}`, `{source_name}`). The `critic.md` prompt forbids rejecting an article solely because it doesn't know the described feature — its knowledge cutoff may cause it to miss recent announcements. The rule: if the source is an official publisher blog (`aws.amazon.com`, `cloud.google.com`, `azure.microsoft.com`, `kubernetes.io`, etc.), the feature's existence is accepted as true. Only verifiable errors (bad syntax, wrong command, logical contradiction) justify a technical accuracy penalty.
+```
+1. [First iteration only] Generate 3 personas    → 1 call (LLM_MODEL)
+2. Round 1: each persona critiques independently  → 3 calls (DEBATE_MODEL)
+3. Round 2: each persona responds to the others  → 3 calls (DEBATE_MODEL)
+4. Synthesizer: debate → writer feedback (JSON)  → 1 call (LLM_MODEL)
+   Total: 8 LLM calls per iteration
+```
 
-**Output language awareness:** the critic receives `{output_language}` and evaluates style and voice quality within the norms of the chosen language. It does not penalize for not being in French.
+Personas are **generated once** (iteration 1) from the article context, then cached in `state["debate_personas"]` and reused as-is on iterations 2 and 3. This means the same panel evaluates all revisions — ensuring consistent evaluation criteria across the loop.
+
+### Persona generation (`prompts/persona_generator.md`)
+
+The persona generator receives the article title, category, and a content excerpt. It outputs a JSON array of 3 personas, each with: `id`, `name`, `role`, `background`, `primary_concern`, `tone`, and a `system_prompt` (2–3 sentence character sheet injected into each debate call).
+
+**Key constraint:** personas must represent **genuinely orthogonal concerns** — never 3 variants of "senior engineer". The prompt forces the LLM to assign each persona a distinct axis from: technical depth, developer experience, business/cost impact, security/risk, pedagogy/clarity, contrarian/hype detection, or domain specialist.
+
+### Debate round prompt (`prompts/debate_round.md`)
+
+Each persona receives: its own `system_prompt`, the draft, and a summary of the previous round's assessments (empty in round 1). Returns **1 to 4 bullets** in the persona's voice. No JSON — raw Markdown with the persona's name as `###` header.
+
+The prompt presents two explicit paths rather than a forced critique:
+- **No issues** → 1 bullet endorsement, then stop. This is a valid, meaningful signal.
+- **Genuine concern** → 2–4 specific bullets quoting exact draft sentences.
+
+The fixed "3-5 bullet" quota has been removed because it caused the model to manufacture concerns to fill the count, even in good drafts (documented "forced critique bias", ACM 2025). An endorsement from a persona now counts as positive evidence for the synthesizer.
+
+### Judge prompt (`prompts/debate_synthesizer.md`)
+
+The judge is Mohamad's personal critic. It receives the debate transcript as *evidence* and scores the draft against Mohamad's 4 editorial criteria (tone/voice 25%, technical accuracy 30%, structure 25%, density/length 20%) — the same rubric as the legacy `critic.md`.
+
+It also receives `{source_url}` and `{source_name}` to apply the recent-features rule: never reject for an unknown feature if the source is an official publisher blog.
+
+Returns the **same JSON shape** as the legacy `critic.md` — zero changes needed in `graph.py` or `writer.py`:
+
+```json
+{
+  "approved": false,
+  "score": 6,
+  "security_flag": false,
+  "issues": ["Criterion: tone — hook announces the plan instead of destabilizing an assumption"],
+  "specific_corrections": ["Replace the opening sentence with a direct assertion that overturns..."]
+}
+```
+
+### How the judge uses the debate
+1. Consensus (≥2 personas) → high-priority evidence for the relevant criterion
+2. A single critical issue (factual error, dangerous code) outweighs 3 style nitpicks
+3. Contradictory opinions that cancel out are discarded
+4. Source-inherited issues (PR claims, fund narratives) → credit nuance added by writer, don't re-penalize
+5. Security code flagged by ≥2 personas as **actively dangerous in production** (data loss, credential exposure, unauthorized access) → `security_flag: true`, forces rejection. Technical inaccuracies and suboptimal advice lower the score but do NOT trigger the flag.
+6. Debate concerns irrelevant to Mohamad's editorial goals → discarded
+
+### Corrections format
+`specific_corrections` in the synthesizer JSON now follow a prescriptive format:
+- For tone/structure/density: describe the exact change
+- For technical accuracy: provide the CORRECT technical information (`REPLACE [claim] WITH [correction]. Reason: [why]`), or flag explicitly as unverifiable (`VERIFY AND CORRECT: [claim] — add a caveat or remove it`)
+
+See `docs/multi_critic.md` for the full judge architecture.
+
+### Cost control — `DEBATE_MODEL`
+
+```bash
+# .env — use a cheaper model for the 6 debate-round calls
+DEBATE_MODEL=google/gemini-flash-lite
+
+# Persona generation (1 call) and synthesis (1 call) always use LLM_MODEL
+```
+
+If `DEBATE_MODEL` is not set, it defaults to `LLM_MODEL`. At `MAX_CRITIQUE_ITERATIONS=3` and `DEBATE_ROUNDS=2`, the worst case is 24 LLM calls (8 × 3), of which 18 use the cheaper `DEBATE_MODEL`.
+
+### Fallback chain
+
+1. Persona generation fails → use `_FALLBACK_PERSONAS` (3 hardcoded personas: Staff Engineer / DevOps Lead / Tech Writer)
+2. Debate LLM call fails → synthesize with empty transcript
+3. Synthesizer returns invalid JSON → auto-approve to avoid an infinite loop
+
+### Log output
+
+```
+[MULTI_CRITIC] Generating 3 context-aware personas...
+[MULTI_CRITIC] Personas: Aisha Okonkwo, Dmitri Volkov, Fiona Lacoste
+              Roles: FinOps Architect | Platform Eng | Developer Educator
+[MULTI_CRITIC] Running 2 debate rounds (3 personas × 2 rounds = 6 calls)...
+[MULTI_CRITIC] Debate complete (4821 tokens)
+[MULTI_CRITIC] Synthesizing debate transcript...
+[MULTI_CRITIC] Score: 6/10 — NOT approved (iteration 1/3)
+              Issues: hook announces the plan; no concrete cost numbers
+```
+
+### Research foundations
+
+This sub-system is backed by 4 papers and one production reference:
+
+| Reference | Contribution |
+|-----------|-------------|
+| **D3** — Liang et al. (2024) *arXiv:2410.04663* | Role-specialized agents (advocates + judge) outperform single-reviewer on structured critique tasks |
+| **PersonaAgent** — Liu et al. (2025) *arXiv:2506.06254* | Test-time persona generation aligned to context (article topic/category) rather than hardcoded profiles |
+| **DEBATE Benchmark** — Li et al. (2025) *arXiv:2510.25110* | Orthogonality constraint: without enforcing genuinely different concerns, debaters converge prematurely and produce single-perspective critique |
+| **Perplexity Model Council** (Feb 2026) | Production system using multi-agent debate: 30% fewer factual errors vs. single reviewer at matched cost (via model tiering) |
+
+See `docs/memory.md` references \[15\]–\[18\] for full citations.
 
 ---
 

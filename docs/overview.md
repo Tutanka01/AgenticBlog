@@ -29,9 +29,10 @@ selector_node        ← composite score: LLM score + freshness bonus (0-1)
     ↓  selected_article{}
 fetcher_node         ← cascade: direct → Jina AI Reader → RSS summary fallback
     ↓  selected_article{} + full_content + fetch_method
-writer_node  ←──────────────────────────────┐
-    ↓  draft (v1, v2…)                       │ critic_feedback
-critic_node  ──(score < 7, iter < 3)────────┘
+writer_node  ←────────────────────────────────────┐
+    ↓  draft (v1, v2…)                             │ critic_feedback
+multi_critic_node  ──(score < 7, iter < 3)────────┘
+    ↓  internal: persona gen (×1) + debate rounds (×6) + synthesis (×1) = 8 LLM calls
     ↓  (approve OR max_iter reached)
 formatter_node       ← blog = YAML front matter + draft (no LLM)
     ↓                  linkedin + youtube = LLM via prompts/formatter_social.md
@@ -40,7 +41,9 @@ output_saver_node    ← write output/{date}/ + SQLite checkpoints
 END
 ```
 
-The writer ↔ critic loop is capped at `MAX_CRITIQUE_ITERATIONS` (default: 3). If the score does not reach 7/10 after 3 attempts, the pipeline continues with the best draft produced.
+The writer ↔ critic loop is capped at `MAX_CRITIQUE_ITERATIONS` (default: 3). If the score does not reach 7/10 after 3 attempts, the pipeline continues. `multi_critic_node` tracks the highest-scoring draft across iterations (`best_draft` / `best_score`) and reverts to it if the final iteration produces a regression. When `stagnation_count >= 1` (no improvement from the previous iteration), `writer_node` automatically switches to a conservative revision strategy.
+
+`multi_critic_node` generates 3 context-aware personas on the first iteration and reuses them on subsequent ones. The node is registered under the name `"critic"` in the graph — no edge wiring changes vs. the legacy single-critic architecture. See `docs/agents.md` for the full internal flow.
 
 ---
 
@@ -78,15 +81,19 @@ The active category is passed in `state["active_category"]` and read by `scraper
 │   ├── selector.py      # Composite score → selected_article
 │   ├── fetcher.py       # Cascade fetch: direct → Jina → RSS fallback
 │   ├── writer.py        # Draft / revise → draft (with length retry)
-│   ├── critic.py        # Evaluate → feedback + approve/reject
+│   ├── multi_critic.py  # Multi-persona debate: persona gen + 2 rounds + synthesis (8 LLM calls)
+│   ├── critic.py        # (legacy single-critic — kept as rollback reference, not used)
 │   ├── formatter.py     # blog (YAML+draft) + linkedin/youtube (LLM)
 │   └── output_saver.py  # Persist + console summary
 ├── prompts/             # Markdown prompts with {placeholder} variables
 │   ├── filter.md
 │   ├── writer.md
-│   ├── critic.md
-│   ├── formatter.md        # (kept, not used — replaced by formatter_social.md)
-│   └── formatter_social.md # LinkedIn + YouTube only
+│   ├── critic.md               # (legacy — kept as rollback reference)
+│   ├── persona_generator.md    # Generates 3 context-aware personas as JSON
+│   ├── debate_round.md         # Per-persona critique (rounds 1 & 2)
+│   ├── debate_synthesizer.md   # Mohamad's judge: scores against 4 editorial criteria using debate as evidence
+│   ├── formatter.md            # (kept, not used — replaced by formatter_social.md)
+│   └── formatter_social.md     # LinkedIn + YouTube only
 ├── memory/
 │   └── checkpoints.sqlite  # Managed automatically by LangGraph
 └── output/
@@ -112,6 +119,11 @@ Key state fields:
 |-----|------|------|
 | `active_category` | `str` | Run category (`"infra"`, `"security"`, `"ai"`, etc.) |
 | `output_language` | `str` | Output language code: `"fr"`, `"en"`, `"ar"` |
+| `debate_personas` | `list` (optional) | 3 generated personas — populated on first iteration, reused on revisions |
+| `debate_transcript` | `str` (optional) | Full debate text from last `multi_critic_node` call |
+| `best_draft` | `str` (optional) | Highest-scoring draft seen so far — restored if final iteration regresses |
+| `best_score` | `int` (optional) | Score of `best_draft` — used to detect regression and stagnation |
+| `stagnation_count` | `int` (optional) | Consecutive iterations with no score improvement — triggers adaptive writer strategy |
 
 ---
 
@@ -127,3 +139,17 @@ OpenRouter is the default backend. `llm.py` automatically detects if `LLM_BASE_U
 | Ollama (local) | `http://localhost:11434/v1` | `ollama` |
 | llama.cpp | `http://localhost:8080/v1` | `any` |
 | OpenAI | `https://api.openai.com/v1` | `sk-...` |
+
+**Multi-critic debate config** (all optional — reasonable defaults):
+
+| Variable | Default | Role |
+|----------|---------|------|
+| `DEBATE_MODEL` | `LLM_MODEL` | Model for the 6 debate-round calls — use a cheaper/faster model here |
+| `NUM_DEBATE_PERSONAS` | `3` | Number of personas generated |
+| `DEBATE_ROUNDS` | `2` | Number of debate rounds per iteration |
+
+Example cost-optimized setup:
+```bash
+LLM_MODEL=google/gemini-2.0-flash      # persona gen + synthesis (2 calls per iter)
+DEBATE_MODEL=google/gemini-flash-lite  # debate rounds (6 calls per iter, much cheaper)
+```

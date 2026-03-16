@@ -37,6 +37,7 @@ def output_saver_node(state: PipelineState) -> dict:
             ],
             "nb_iterations_critique": state.get("iteration_count", 0),
             "critique_approved": state.get("critique_approved", False),
+            "security_flag": state.get("security_flag", False),
             "tokens_used": state.get("total_tokens_used", 0),
             "checkpoint_db": CHECKPOINT_DB,
         }
@@ -49,6 +50,9 @@ def output_saver_node(state: PipelineState) -> dict:
     tokens = state.get("total_tokens_used", 0)
     print(f"[OUTPUT]     Saved → {out_dir}/")
     print(f"             Checkpoint: {CHECKPOINT_DB} (run_id: {run_id[:8]}...)")
+    if state.get("security_flag"):
+        print(f"[OUTPUT]  ⚠ SECURITY FLAG — a code snippet was flagged as dangerous by the debate panel.")
+        print(f"             Review {out_dir}/blog_post.md before publishing.")
     print(f"Done — {tokens} tokens used")
 
     try:

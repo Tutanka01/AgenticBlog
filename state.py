@@ -4,7 +4,7 @@ ACPMessage: structured inter-agent message (Agent Communication Protocol pattern
 PipelineState: full graph state for LangGraph.
 """
 import operator
-from typing import Annotated, TypedDict
+from typing import Annotated, NotRequired, TypedDict
 from pydantic import BaseModel
 
 
@@ -39,6 +39,16 @@ class PipelineState(TypedDict):
 
     # Editorial memory
     memory_context: str    # Context from past articles, injected into writer
+
+    # Multi-persona debate (multi_critic_node)
+    debate_personas: NotRequired[list]   # generated once per run, reused across iterations
+    debate_transcript: NotRequired[str]  # last full debate text (writer context + memory)
+    security_flag: NotRequired[bool]     # True if a code snippet was flagged as dangerous
+
+    # Iteration quality tracking
+    best_draft: NotRequired[str]         # highest-scoring draft seen so far
+    best_score: NotRequired[int]         # score of best_draft
+    stagnation_count: NotRequired[int]   # consecutive iterations with no score improvement
 
     # Meta
     run_id: str
