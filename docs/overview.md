@@ -20,6 +20,8 @@ The project also includes a web control interface:
 
 ## Pipeline architecture
 
+### Normal mode (RSS)
+
 ```
 scraper_node         ← RSS feeds based on active category
     ↓  raw_articles[] — {title, url, summary, source, published, fetched_at}
@@ -40,6 +42,22 @@ output_saver_node    ← write output/{date}/ + SQLite checkpoints
     ↓
 END
 ```
+
+### Direct URL mode (`--url`)
+
+When `state["direct_url"]` is set, scraper/filter/selector are bypassed:
+
+```
+[scraper_node]  → skipped (logs "Direct URL mode — skipping RSS scrape")
+[filter_node]   → skipped (logs "Direct URL mode — skipping LLM scoring")
+[selector_node] → injects selected_article = {url, title=url, score=10} directly
+fetcher_node    ← same 3-strategy cascade as normal mode
+    ↓  (writer → critic loop → formatter → output_saver unchanged)
+```
+
+Triggered via CLI (`--url`) or API (`"url"` field in `POST /api/run`).
+
+---
 
 The writer ↔ critic loop is capped at `MAX_CRITIQUE_ITERATIONS` (default: 3). If the score does not reach 7/10 after 3 attempts, the pipeline continues. `multi_critic_node` tracks the highest-scoring draft across iterations (`best_draft` / `best_score`) and reverts to it if the final iteration produces a regression. When `stagnation_count >= 1` (no improvement from the previous iteration), `writer_node` automatically switches to a conservative revision strategy.
 
@@ -67,7 +85,7 @@ The active category is passed in `state["active_category"]` and read by `scraper
 
 ```
 .
-├── main.py              # Entry point (CLI: --resume, --list, --category, --lang)
+├── main.py              # Entry point (CLI: --resume, --list, --category, --lang, --url)
 ├── graph.py             # LangGraph StateGraph + SQLite checkpointer
 ├── state.py             # PipelineState (TypedDict) + ACPMessage (Pydantic)
 ├── config.py            # Centralized config: CATEGORIES, DEFAULT_CATEGORY, .env
@@ -119,6 +137,7 @@ Key state fields:
 |-----|------|------|
 | `active_category` | `str` | Run category (`"infra"`, `"security"`, `"ai"`, etc.) |
 | `output_language` | `str` | Output language code: `"fr"`, `"en"`, `"ar"` |
+| `direct_url` | `str` (optional) | If set, scraper/filter/selector are bypassed and the pipeline runs directly on this URL |
 | `debate_personas` | `list` (optional) | 3 generated personas — populated on first iteration, reused on revisions |
 | `debate_transcript` | `str` (optional) | Full debate text from last `multi_critic_node` call |
 | `best_draft` | `str` (optional) | Highest-scoring draft seen so far — restored if final iteration regresses |

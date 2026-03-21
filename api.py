@@ -50,6 +50,7 @@ class RunRequest(BaseModel):
     category: str
     resume_id: str | None = None
     lang: str = "en"
+    url: str | None = None
 
 
 class RunManager:
@@ -271,7 +272,7 @@ class RunManager:
                 self.current_run_id = None
                 self.process = None
 
-    def start_run(self, category: str, resume_id: str | None = None, lang: str = "en") -> str:
+    def start_run(self, category: str, resume_id: str | None = None, lang: str = "en", url: str | None = None) -> str:
         with self.lock:
             if self.is_running:
                 raise RuntimeError("A run is already in progress")
@@ -284,6 +285,8 @@ class RunManager:
             self.history = []
 
             cmd = ["python", "main.py", "--resume", run_id, "--category", category, "--lang", lang]
+            if url:
+                cmd += ["--url", url]
             thread = threading.Thread(target=self._runner, args=(cmd, run_id), daemon=True)
             thread.start()
             return run_id
@@ -429,7 +432,7 @@ async def get_run(run_id: str) -> dict[str, Any]:
 @app.post("/api/run")
 async def post_run(payload: RunRequest) -> dict[str, Any]:
     try:
-        run_id = run_manager.start_run(payload.category, payload.resume_id, payload.lang)
+        run_id = run_manager.start_run(payload.category, payload.resume_id, payload.lang, payload.url)
     except RuntimeError:
         raise HTTPException(status_code=409, detail="A run is already in progress")
     return {"run_id": run_id, "status": "started"}

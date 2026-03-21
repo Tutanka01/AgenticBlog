@@ -50,6 +50,9 @@ class PipelineState(TypedDict):
     best_score: NotRequired[int]         # score of best_draft
     stagnation_count: NotRequired[int]   # consecutive iterations with no score improvement
 
+    # Direct URL mode (bypasses scraper/filter/selector)
+    direct_url: NotRequired[str]   # if set, pipeline runs directly on this URL
+
     # Meta
     run_id: str
     run_date: str

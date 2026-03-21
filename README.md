@@ -89,8 +89,17 @@ DEBATE_MODEL=google/gemini-flash-lite
 |--------|-------------|
 | `-c` / `--category` | `infra`, `security`, `ai`, `cloud`, `africa` |
 | `-l` / `--lang` | `en` (default), `fr`, `ar` |
+| `-u` / `--url <url>` | Run directly on a specific article URL — bypasses scraper, filter and selector |
 | `--resume <run_id>` | Resume an interrupted run (SQLite checkpoints) |
 | `--list` | List past runs |
+
+**Direct URL mode** skips the RSS pipeline entirely and runs the full writer → debate → format chain on the article you point at:
+
+```bash
+python main.py --url "https://example.com/my-article" --lang fr --category security
+```
+
+The fetcher's 3-strategy cascade (direct → Jina → RSS fallback) still applies, so paywalled or bot-protected pages are handled the same way as in a normal run.
 
 ---
 

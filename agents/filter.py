@@ -14,7 +14,18 @@ def _build_articles_text(articles: list[dict]) -> str:
 
 
 def filter_node(state: PipelineState) -> dict:
-    """Score raw_articles via LLM → filtered_articles (score >= FILTER_THRESHOLD, top TOP_N_FILTERED)."""
+    """Score raw_articles via LLM → filtered_articles. Bypassed when direct_url is set."""
+    if state.get("direct_url"):
+        print("[FILTER]     Direct URL mode — skipping LLM scoring")
+        msg = ACPMessage(
+            sender="filter",
+            receiver="selector",
+            msg_type="result",
+            content="Direct URL mode — filter bypassed",
+            metadata={"kept": 0},
+        )
+        return {"filtered_articles": [], "messages": [msg]}
+
     raw = state["raw_articles"]
 
     category = state.get("active_category", DEFAULT_CATEGORY)

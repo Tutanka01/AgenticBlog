@@ -21,7 +21,22 @@ def _freshness_bonus(article: dict) -> float:
 
 
 def selector_node(state: PipelineState) -> dict:
-    """Pick top article by composite score (LLM score + freshness bonus) → selected_article."""
+    """Pick top article by composite score. Bypassed when direct_url is set."""
+    if state.get("direct_url"):
+        url = state["direct_url"]
+        selected = {"url": url, "title": url, "summary": "", "source": "direct", "score": 10}
+        recent_runs = load_memory_index()
+        memory_context = build_writer_context(selected, recent_runs)
+        print(f"[SELECTOR]   Direct URL mode — using provided URL: {url[:60]}...")
+        msg = ACPMessage(
+            sender="selector",
+            receiver="fetcher",
+            msg_type="task",
+            content=f"Direct URL article: {url}",
+            metadata={"url": url, "score": 10},
+        )
+        return {"selected_article": selected, "memory_context": memory_context, "messages": [msg]}
+
     filtered = state["filtered_articles"]
 
     recent_runs = load_memory_index()

@@ -7,10 +7,12 @@ Each agent is a pure function `(state: PipelineState) -> dict`. It receives the 
 ## scraper
 
 **File:** `agents/scraper.py`
-**Reads:** `state["active_category"]`, `config.CATEGORIES`, `config.MAX_ARTICLES_TO_FETCH`
+**Reads:** `state["active_category"]`, `config.CATEGORIES`, `config.MAX_ARTICLES_TO_FETCH`, `state["direct_url"]` (optional)
 **Writes:** `raw_articles`, `messages`
 
-Parses each RSS feed with `feedparser`. The feeds used depend on the active category (`CATEGORIES[active_category]["feeds"]`). On feed error, it logs and continues (other feeds are not blocked). Returns a list of dicts:
+**Direct URL bypass:** if `state["direct_url"]` is set, the node returns immediately with `raw_articles = []` and logs `"Direct URL mode — skipping RSS scrape"`. No feeds are fetched.
+
+Otherwise, parses each RSS feed with `feedparser`. The feeds used depend on the active category (`CATEGORIES[active_category]["feeds"]`). On feed error, it logs and continues (other feeds are not blocked). Returns a list of dicts:
 
 ```
 {title, url, summary, source, published, fetched_at}
@@ -23,10 +25,12 @@ Parses each RSS feed with `feedparser`. The feeds used depend on the active cate
 ## filter
 
 **File:** `agents/filter.py`
-**Reads:** `raw_articles`, `state["active_category"]`, `config.CATEGORIES`, `prompts/filter.md`
+**Reads:** `raw_articles`, `state["active_category"]`, `config.CATEGORIES`, `prompts/filter.md`, `state["direct_url"]` (optional)
 **Writes:** `filtered_articles`, `total_tokens_used`, `messages`
 
-Sends all articles to the LLM in a single request using the `filter.md` prompt. Topics used are those of the active category (`CATEGORIES[active_category]["topics"]`), not the global `INTEREST_TOPICS` list. The LLM returns a JSON array `[{url, score, reason}]`. Articles with `score >= FILTER_THRESHOLD` are kept, sorted by descending score, capped at `TOP_N_FILTERED`.
+**Direct URL bypass:** if `state["direct_url"]` is set, returns immediately with `filtered_articles = []`. No LLM call is made.
+
+Otherwise, sends all articles to the LLM in a single request using the `filter.md` prompt. Topics used are those of the active category (`CATEGORIES[active_category]["topics"]`), not the global `INTEREST_TOPICS` list. The LLM returns a JSON array `[{url, score, reason}]`. Articles with `score >= FILTER_THRESHOLD` are kept, sorted by descending score, capped at `TOP_N_FILTERED`.
 
 **Fallback:** if the LLM fails or returns invalid JSON, all articles receive a score of 5 (they pass the filter, but none is ranked above the others).
 
@@ -35,10 +39,16 @@ Sends all articles to the LLM in a single request using the `filter.md` prompt. 
 ## selector
 
 **File:** `agents/selector.py`
-**Reads:** `filtered_articles`, `raw_articles`, `memory/MEMORY.md` (via `memory_manager`)
+**Reads:** `filtered_articles`, `raw_articles`, `memory/MEMORY.md` (via `memory_manager`), `state["direct_url"]` (optional)
 **Writes:** `selected_article`, `memory_context`, `messages`
 
-Selects the article with the highest **composite score**:
+**Direct URL bypass:** if `state["direct_url"]` is set, skips composite scoring and injects directly:
+```python
+selected_article = {"url": direct_url, "title": direct_url, "summary": "", "source": "direct", "score": 10}
+```
+`memory_context` is still built from past runs as usual (novelty penalty is not applied).
+
+Otherwise, selects the article with the highest **composite score**:
 
 ```
 composite_score = llm_score (0–10) + freshness_bonus (0–1) - novelty_penalty (0–2)
