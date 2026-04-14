@@ -30,7 +30,7 @@ def list_recent_runs() -> list[str]:
         return []
 
 
-def run_pipeline(run_id: str | None = None, category: str = DEFAULT_CATEGORY, lang: str = DEFAULT_OUTPUT_LANGUAGE, url: str | None = None) -> None:
+def run_pipeline(run_id: str | None = None, category: str = DEFAULT_CATEGORY, lang: str = DEFAULT_OUTPUT_LANGUAGE, url: str | None = None, topic: str | None = None) -> None:
     """Execute or resume the pipeline."""
     start = time.time()
 
@@ -42,7 +42,12 @@ def run_pipeline(run_id: str | None = None, category: str = DEFAULT_CATEGORY, la
 
     cat_config = CATEGORIES.get(category, CATEGORIES[DEFAULT_CATEGORY])
     lang_label = OUTPUT_LANGUAGE_LABELS.get(lang, lang)
-    mode_label = f" | URL: {url}" if url else ""
+    if topic:
+        mode_label = f" | Topic: {topic}"
+    elif url:
+        mode_label = f" | URL: {url}"
+    else:
+        mode_label = ""
     print(f"Category: [{cat_config['label']}] | Language: [{lang_label}]{mode_label}\n")
 
     run_date = date.today().isoformat()
@@ -69,6 +74,9 @@ def run_pipeline(run_id: str | None = None, category: str = DEFAULT_CATEGORY, la
 
     if url:
         initial_state["direct_url"] = url
+
+    if topic:
+        initial_state["direct_topic"] = topic
 
     config = {"configurable": {"thread_id": run_id}}
 
@@ -101,6 +109,11 @@ def main() -> None:
         metavar="URL",
         help="Run the pipeline directly on a specific URL (bypasses scraper/filter/selector)"
     )
+    parser.add_argument(
+        "--topic", "-t",
+        metavar="TOPIC",
+        help="Generate an article on a freeform topic (bypasses scraper/filter/selector/fetcher)"
+    )
     args = parser.parse_args()
 
     if args.list:
@@ -117,9 +130,13 @@ def main() -> None:
         run_pipeline(run_id=args.resume, category=args.category, lang=args.lang, url=args.url)
         return
 
-    # --url bypasses the resume prompt
+    # --url and --topic bypass the resume prompt
     if args.url:
         run_pipeline(category=args.category, lang=args.lang, url=args.url)
+        return
+
+    if args.topic:
+        run_pipeline(category=args.category, lang=args.lang, topic=args.topic)
         return
 
     # Auto-detect last run and offer to resume

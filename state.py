@@ -53,6 +53,9 @@ class PipelineState(TypedDict):
     # Direct URL mode (bypasses scraper/filter/selector)
     direct_url: NotRequired[str]   # if set, pipeline runs directly on this URL
 
+    # Direct topic mode (bypasses scraper/filter/selector/fetcher)
+    direct_topic: NotRequired[str]  # if set, pipeline generates article from freeform topic
+
     # Meta
     run_id: str
     run_date: str

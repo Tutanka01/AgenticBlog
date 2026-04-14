@@ -1,4 +1,4 @@
-import { BarChart2, Clock, ExternalLink, FileText, RefreshCw, Star, Zap } from 'lucide-react';
+import { BarChart2, Clock, Copy, ExternalLink, FileText, Link2, RefreshCw, Search, Star, Tag, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import MarkdownPreview from './MarkdownPreview';
 import MetricCard from './MetricCard';
@@ -8,10 +8,35 @@ function parseBlogPost(raw) {
   if (!fmMatch) return { frontmatter: {}, content: raw || '' };
   const lines = fmMatch[1].split('\n');
   const fm = {};
-  lines.forEach((line) => {
-    const [k, ...v] = line.split(':');
-    if (k) fm[k.trim()] = v.join(':').trim().replace(/^'|'$/g, '');
-  });
+  let currentArrayKey = null;
+
+  for (const line of lines) {
+    // YAML block array item: "- value"
+    if (/^\s*-\s/.test(line)) {
+      if (currentArrayKey) {
+        if (!Array.isArray(fm[currentArrayKey])) fm[currentArrayKey] = [];
+        fm[currentArrayKey].push(line.replace(/^\s*-\s*/, '').trim());
+      }
+      continue;
+    }
+    currentArrayKey = null;
+    const colonIdx = line.indexOf(':');
+    if (colonIdx === -1) continue;
+    const key = line.slice(0, colonIdx).trim();
+    const value = line.slice(colonIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+    if (value === '' || value === '[]') {
+      currentArrayKey = key;
+      fm[key] = [];
+    } else {
+      // Inline array: "[a, b, c]"
+      const inlineArr = value.match(/^\[(.+)\]$/);
+      if (inlineArr) {
+        fm[key] = inlineArr[1].split(',').map((s) => s.trim());
+      } else {
+        fm[key] = value;
+      }
+    }
+  }
   return { frontmatter: fm, content: fmMatch[2].trim() };
 }
 
@@ -182,6 +207,11 @@ export default function OutputsView({ runs, selectedRunId, onSelectRun, runData,
               <span className="mono text-[10px]" style={{ color: 'var(--text-secondary)' }}>
                 {frontmatter.words || metadata.word_count || blogWordCount}w
               </span>
+              {frontmatter.reading_time && (
+                <span className="mono text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                  · {frontmatter.reading_time}
+                </span>
+              )}
               <span
                 className="mono text-[10px]"
                 style={{ color: criticColor }}
@@ -591,6 +621,167 @@ export default function OutputsView({ runs, selectedRunId, onSelectRun, runData,
                       <p className="mono text-[14px]" style={{ color: 'var(--text-primary)' }}>
                         {metadata.active_category || '—'}
                       </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* SEO Panel */}
+                {(frontmatter.slug || frontmatter.keywords?.length > 0 || frontmatter.internal_links?.length > 0) && (
+                  <div className="mt-6">
+                    <div className="mb-2.5 flex items-center gap-2">
+                      <Search size={11} style={{ color: 'var(--text-muted)' }} />
+                      <p className="label">SEO Metadata</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                      {/* Left column: slug + canonical + schema badges */}
+                      <div className="glass-card p-4 space-y-3">
+                        {/* Schema + intent badges */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {frontmatter.schema_type && (
+                            <span
+                              className="rounded px-2 py-0.5 text-[10px] font-medium"
+                              style={{ backgroundColor: 'rgba(139,92,246,0.15)', color: '#A78BFA' }}
+                            >
+                              {frontmatter.schema_type}
+                            </span>
+                          )}
+                          {frontmatter.search_intent && (
+                            <span
+                              className="rounded px-2 py-0.5 text-[10px] font-medium"
+                              style={{ backgroundColor: 'rgba(34,197,94,0.1)', color: '#4ADE80' }}
+                            >
+                              {frontmatter.search_intent}
+                            </span>
+                          )}
+                          {frontmatter.reading_time && (
+                            <span
+                              className="mono rounded px-2 py-0.5 text-[10px]"
+                              style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}
+                            >
+                              {frontmatter.reading_time}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Slug */}
+                        {frontmatter.slug && (
+                          <div>
+                            <p className="label mb-1">Slug</p>
+                            <div className="flex items-center gap-2">
+                              <code
+                                className="mono flex-1 truncate rounded px-2 py-1 text-[10px]"
+                                style={{ backgroundColor: 'var(--bg-elevated)', color: '#86EFAC' }}
+                              >
+                                /{frontmatter.slug}
+                              </code>
+                              <button
+                                type="button"
+                                onClick={() => copy(`/${frontmatter.slug}`, 'Slug')}
+                                className="rounded border p-1"
+                                style={{ borderColor: 'var(--bg-border)', color: 'var(--text-muted)' }}
+                                title="Copy slug"
+                              >
+                                <Copy size={10} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Canonical URL */}
+                        {frontmatter.canonical && (
+                          <div>
+                            <p className="label mb-1">Canonical URL</p>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="mono flex-1 truncate text-[10px]"
+                                style={{ color: '#60A5FA' }}
+                                title={frontmatter.canonical}
+                              >
+                                {frontmatter.canonical}
+                              </span>
+                              <a
+                                href={frontmatter.canonical}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="rounded border p-1"
+                                style={{ borderColor: 'var(--bg-border)', color: 'var(--text-muted)' }}
+                                title="Open canonical URL"
+                              >
+                                <ExternalLink size={10} />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => copy(frontmatter.canonical, 'Canonical URL')}
+                                className="rounded border p-1"
+                                style={{ borderColor: 'var(--bg-border)', color: 'var(--text-muted)' }}
+                                title="Copy canonical URL"
+                              >
+                                <Copy size={10} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right column: keywords + internal links */}
+                      <div className="space-y-3">
+                        {/* Keywords */}
+                        {Array.isArray(frontmatter.keywords) && frontmatter.keywords.length > 0 && (
+                          <div className="glass-card p-4">
+                            <div className="mb-2 flex items-center gap-1.5">
+                              <Tag size={10} style={{ color: 'var(--text-muted)' }} />
+                              <p className="label">Target Keywords</p>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {frontmatter.keywords.map((kw, i) => (
+                                <span
+                                  key={kw}
+                                  className="mono rounded px-2 py-0.5 text-[10px]"
+                                  style={{
+                                    backgroundColor: i === 0 ? 'rgba(139,92,246,0.2)' : 'var(--bg-elevated)',
+                                    color: i === 0 ? '#C4B5FD' : 'var(--text-secondary)',
+                                    border: i === 0 ? '1px solid rgba(139,92,246,0.3)' : '1px solid transparent',
+                                  }}
+                                >
+                                  {kw}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Internal Link Suggestions */}
+                        {Array.isArray(frontmatter.internal_links) && frontmatter.internal_links.length > 0 && (
+                          <div className="glass-card p-4">
+                            <div className="mb-2 flex items-center gap-1.5">
+                              <Link2 size={10} style={{ color: 'var(--text-muted)' }} />
+                              <p className="label">Internal Link Suggestions</p>
+                            </div>
+                            <ul className="space-y-1">
+                              {frontmatter.internal_links.map((link) => (
+                                <li key={link} className="flex items-center gap-1.5">
+                                  <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>→</span>
+                                  <span
+                                    className="mono text-[10px]"
+                                    style={{ color: '#60A5FA' }}
+                                  >
+                                    {link}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => copy(link, 'Anchor text')}
+                                    style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                                    title="Copy anchor text"
+                                  >
+                                    <Copy size={9} />
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

@@ -26,11 +26,53 @@ Write entirely in {output_language}. Technical terms that are standard in Englis
 - FORBIDDEN examples: "Comment j'ai dominé le classement Open LLM avec 2x RTX 4090 – et ce que ça change pour vous"
 
 ## Length — ABSOLUTE CONSTRAINT
-**Between 900 and 1200 words. Non-negotiable.**
-Count your words mentally. If you are below 900 words at the end of your draft,
-expand the "Practical example" section with a second example, or add a
-"Common pitfalls" section with 2–3 frequent mistakes engineers make on this topic.
+**Between 1200 and 1800 words.** This range is required for SEO depth without padding.
+If you are below 1200 words at the end of your draft, expand the "Practical example"
+section with a second example or a "Common pitfalls" section (2–3 real mistakes).
+The FAQ and ToC sections below count toward the word count.
 Do not pad with empty text — add real value.
+
+## Table of Contents — mandatory for articles over 1300 words
+After the article title (H1), insert a `## Sommaire` (or `## Table of Contents` in English)
+with bullet links to every H2 in the article. Use anchor format: `- [Section title](#section-slug)`.
+This must come before the article body, right after the H1.
+Example:
+```
+## Sommaire
+- [Pourquoi CRIU change tout](#pourquoi-criu-change-tout)
+- [Comment ça fonctionne](#comment-a-fonctionne)
+- [En prod : les pièges](#en-prod-les-pieges)
+- [FAQ](#faq)
+```
+
+## SEO Integration — invisible but mandatory
+
+Before writing, identify the **primary keyword** — the exact phrase a technical reader would type
+in Google to find this article (e.g., "kubernetes checkpoint restore", "CVE AppArmor Linux").
+
+Rules:
+- Place the primary keyword or a close variant **in the first 100 words** of the article — naturally, not forced
+- Include it verbatim in **at least one H2 or H3** heading
+- Use **2–4 semantic variations** (LSI keywords) throughout the text — e.g., for "kubernetes pod migration":
+  also use "live migration containers", "CRIU Kubernetes", "stateful workload migration"
+- Structure one paragraph so it **directly answers the most likely search question** in 40–60 words,
+  placed immediately after the first H2. No preamble. This is the featured snippet target.
+  Example: "CRIU (Checkpoint/Restore In Userspace) est un outil Linux qui..."
+- Add a **`## FAQ`** section as the last section before the conclusion. Include 3 real questions
+  an engineer would type into Google about this topic. Answer each in 2–4 sentences, direct and technical.
+  Format exactly:
+  ```
+  ## FAQ
+  **Q : Comment CRIU gère-t-il les connexions réseau actives ?**
+  CRIU ferme les connexions TCP avant le checkpoint et les... [2-4 sentence answer]
+
+  **Q : Est-ce compatible avec Kubernetes 1.30 ?**
+  Oui, depuis Kubernetes 1.25... [2-4 sentence answer]
+  ```
+  This section is mandatory — it targets Google's "People Also Ask" results directly.
+
+What NOT to do: do not keyword-stuff, do not repeat the same phrase robotically,
+do not sacrifice Mohamad's voice for SEO — good writing IS good SEO.
 
 ## Memory context — Past articles on this topic
 {memory_context}

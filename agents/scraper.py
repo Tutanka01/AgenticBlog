@@ -7,7 +7,7 @@ from config import MAX_ARTICLES_TO_FETCH, CATEGORIES, DEFAULT_CATEGORY
 
 
 def scraper_node(state: PipelineState) -> dict:
-    """Fetch RSS feeds → raw_articles list. Bypassed when direct_url is set."""
+    """Fetch RSS feeds → raw_articles list. Bypassed when direct_url or direct_topic is set."""
     if state.get("direct_url"):
         url = state["direct_url"]
         print(f"[SCRAPER]    Direct URL mode — skipping RSS scrape ({url[:60]}...)")
@@ -17,6 +17,18 @@ def scraper_node(state: PipelineState) -> dict:
             msg_type="result",
             content="Direct URL mode — scraper bypassed",
             metadata={"direct_url": url},
+        )
+        return {"raw_articles": [], "messages": [msg]}
+
+    if state.get("direct_topic"):
+        topic = state["direct_topic"]
+        print(f"[SCRAPER]    Direct TOPIC mode — skipping RSS scrape (topic: '{topic[:60]}')")
+        msg = ACPMessage(
+            sender="scraper",
+            receiver="filter",
+            msg_type="result",
+            content=f"Direct TOPIC mode — scraper bypassed (topic: '{topic}')",
+            metadata={"direct_topic": topic},
         )
         return {"raw_articles": [], "messages": [msg]}
 

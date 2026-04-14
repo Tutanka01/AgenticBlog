@@ -90,6 +90,7 @@ DEBATE_MODEL=google/gemini-flash-lite
 | `-c` / `--category` | `infra`, `security`, `ai`, `cloud`, `africa` |
 | `-l` / `--lang` | `en` (default), `fr`, `ar` |
 | `-u` / `--url <url>` | Run directly on a specific article URL — bypasses scraper, filter and selector |
+| `-t` / `--topic <topic>` | Generate an article on any freeform topic — bypasses the entire discovery pipeline |
 | `--resume <run_id>` | Resume an interrupted run (SQLite checkpoints) |
 | `--list` | List past runs |
 
@@ -100,6 +101,15 @@ python main.py --url "https://example.com/my-article" --lang fr --category secur
 ```
 
 The fetcher's 3-strategy cascade (direct → Jina → RSS fallback) still applies, so paywalled or bot-protected pages are handled the same way as in a normal run.
+
+**Direct topic mode** bypasses the entire discovery pipeline (scraper, filter, selector, fetcher) and generates an original article from scratch based solely on LLM knowledge:
+
+```bash
+python main.py --topic "la relation entre Kubernetes et les microVMs" --lang fr
+python main.py --topic "How eBPF is changing Linux observability" --lang en --category infra
+```
+
+The full writer → debate panel → formatter chain still runs — you get the same three output files with the same quality bar. No source URL is required; the writer generates original content from the topic description alone.
 
 ---
 

@@ -21,7 +21,7 @@ def _freshness_bonus(article: dict) -> float:
 
 
 def selector_node(state: PipelineState) -> dict:
-    """Pick top article by composite score. Bypassed when direct_url is set."""
+    """Pick top article by composite score. Bypassed when direct_url or direct_topic is set."""
     if state.get("direct_url"):
         url = state["direct_url"]
         selected = {"url": url, "title": url, "summary": "", "source": "direct", "score": 10}
@@ -34,6 +34,35 @@ def selector_node(state: PipelineState) -> dict:
             msg_type="task",
             content=f"Direct URL article: {url}",
             metadata={"url": url, "score": 10},
+        )
+        return {"selected_article": selected, "memory_context": memory_context, "messages": [msg]}
+
+    if state.get("direct_topic"):
+        topic = state["direct_topic"]
+        slug = topic.lower().replace(" ", "-")[:60]
+        selected = {
+            "title": topic,
+            "url": f"topic://{slug}",
+            "summary": topic,
+            "full_content": (
+                f"SUJET LIBRE : {topic}\n\n"
+                "Il n'y a pas d'article source externe. "
+                "Rédige un article complet et original basé uniquement sur tes connaissances, "
+                "sans inventer de sources ni de citations. "
+                "Le sujet ci-dessus est la seule contrainte de départ."
+            ),
+            "source": "topic",
+            "score": 10,
+        }
+        recent_runs = load_memory_index()
+        memory_context = build_writer_context(selected, recent_runs)
+        print(f"[SELECTOR]   Direct TOPIC mode — synthetic article for: '{topic[:60]}'")
+        msg = ACPMessage(
+            sender="selector",
+            receiver="fetcher",
+            msg_type="task",
+            content=f"Direct TOPIC article: {topic}",
+            metadata={"topic": topic, "score": 10},
         )
         return {"selected_article": selected, "memory_context": memory_context, "messages": [msg]}
 

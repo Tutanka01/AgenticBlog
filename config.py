@@ -15,6 +15,9 @@ LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "90"))
 OPENROUTER_SITE_URL  = os.getenv("OPENROUTER_SITE_URL",  "https://github.com/Tutanka01/AgenticBlog")
 OPENROUTER_APP_NAME  = os.getenv("OPENROUTER_APP_NAME",  "AgenticBlog")
 
+# ── Site metadata (for SEO canonical URLs and OG tags) ────────────────────────
+SITE_URL = os.getenv("SITE_URL", "https://makhal.fr")
+
 # ── Multi-critic debate ───────────────────────────────────────────────────────
 # DEBATE_MODEL: cheaper/faster model for the 6 debate-round calls.
 # Defaults to LLM_MODEL; override with e.g. "google/gemini-flash-lite" to cut cost.

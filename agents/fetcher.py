@@ -46,6 +46,18 @@ def _fetch_via_jina(url: str) -> str:
 
 def fetcher_node(state: PipelineState) -> dict:
     """Fetch article content via cascade: direct → Jina Reader → RSS summary fallback."""
+    if state.get("direct_topic"):
+        topic = state["direct_topic"]
+        print(f"[FETCHER]    Direct TOPIC mode — skipping fetch (content already set for '{topic[:60]}')")
+        msg = ACPMessage(
+            sender="fetcher",
+            receiver="writer",
+            msg_type="result",
+            content="Direct TOPIC mode — fetcher bypassed",
+            metadata={"topic": topic},
+        )
+        return {"messages": [msg]}
+
     article = state["selected_article"]
     url = article.get("url", "")
     full_content = ""

@@ -7,10 +7,12 @@ Each agent is a pure function `(state: PipelineState) -> dict`. It receives the 
 ## scraper
 
 **File:** `agents/scraper.py`
-**Reads:** `state["active_category"]`, `config.CATEGORIES`, `config.MAX_ARTICLES_TO_FETCH`, `state["direct_url"]` (optional)
+**Reads:** `state["active_category"]`, `config.CATEGORIES`, `config.MAX_ARTICLES_TO_FETCH`, `state["direct_url"]` (optional), `state["direct_topic"]` (optional)
 **Writes:** `raw_articles`, `messages`
 
 **Direct URL bypass:** if `state["direct_url"]` is set, the node returns immediately with `raw_articles = []` and logs `"Direct URL mode — skipping RSS scrape"`. No feeds are fetched.
+
+**Direct topic bypass:** if `state["direct_topic"]` is set, the node returns immediately with `raw_articles = []` and logs `"Direct TOPIC mode — skipping RSS scrape"`. No feeds are fetched.
 
 Otherwise, parses each RSS feed with `feedparser`. The feeds used depend on the active category (`CATEGORIES[active_category]["feeds"]`). On feed error, it logs and continues (other feeds are not blocked). Returns a list of dicts:
 
@@ -25,10 +27,12 @@ Otherwise, parses each RSS feed with `feedparser`. The feeds used depend on the 
 ## filter
 
 **File:** `agents/filter.py`
-**Reads:** `raw_articles`, `state["active_category"]`, `config.CATEGORIES`, `prompts/filter.md`, `state["direct_url"]` (optional)
+**Reads:** `raw_articles`, `state["active_category"]`, `config.CATEGORIES`, `prompts/filter.md`, `state["direct_url"]` (optional), `state["direct_topic"]` (optional)
 **Writes:** `filtered_articles`, `total_tokens_used`, `messages`
 
 **Direct URL bypass:** if `state["direct_url"]` is set, returns immediately with `filtered_articles = []`. No LLM call is made.
+
+**Direct topic bypass:** if `state["direct_topic"]` is set, returns immediately with `filtered_articles = []`. No LLM call is made.
 
 Otherwise, sends all articles to the LLM in a single request using the `filter.md` prompt. Topics used are those of the active category (`CATEGORIES[active_category]["topics"]`), not the global `INTEREST_TOPICS` list. The LLM returns a JSON array `[{url, score, reason}]`. Articles with `score >= FILTER_THRESHOLD` are kept, sorted by descending score, capped at `TOP_N_FILTERED`.
 
@@ -39,7 +43,7 @@ Otherwise, sends all articles to the LLM in a single request using the `filter.m
 ## selector
 
 **File:** `agents/selector.py`
-**Reads:** `filtered_articles`, `raw_articles`, `memory/MEMORY.md` (via `memory_manager`), `state["direct_url"]` (optional)
+**Reads:** `filtered_articles`, `raw_articles`, `memory/MEMORY.md` (via `memory_manager`), `state["direct_url"]` (optional), `state["direct_topic"]` (optional)
 **Writes:** `selected_article`, `memory_context`, `messages`
 
 **Direct URL bypass:** if `state["direct_url"]` is set, skips composite scoring and injects directly:
@@ -47,6 +51,19 @@ Otherwise, sends all articles to the LLM in a single request using the `filter.m
 selected_article = {"url": direct_url, "title": direct_url, "summary": "", "source": "direct", "score": 10}
 ```
 `memory_context` is still built from past runs as usual (novelty penalty is not applied).
+
+**Direct topic bypass:** if `state["direct_topic"]` is set, builds a synthetic article and injects it directly:
+```python
+selected_article = {
+    "title": topic,
+    "url": "topic://<slug>",
+    "summary": topic,
+    "full_content": "SUJET LIBRE : {topic}\n\nIl n'y a pas d'article source externe...",
+    "source": "topic",
+    "score": 10,
+}
+```
+`memory_context` is built from past runs as usual. The `full_content` instructs the writer to generate original content from LLM knowledge — no external source exists.
 
 Otherwise, selects the article with the highest **composite score**:
 
@@ -69,10 +86,12 @@ See `docs/memory.md` for theoretical foundations.
 ## fetcher
 
 **File:** `agents/fetcher.py`
-**Reads:** `selected_article`
+**Reads:** `selected_article`, `state["direct_topic"]` (optional)
 **Writes:** `selected_article` (enriched with `full_content` + `fetch_method`), `messages`
 
-Fetches article content via a **3-strategy cascade**, in order:
+**Direct topic bypass:** if `state["direct_topic"]` is set, the node returns immediately without fetching anything. `selected_article` already contains `full_content` (set by `selector_node`) and no URL exists to fetch.
+
+Otherwise, fetches article content via a **3-strategy cascade**, in order:
 
 1. **Direct** — `httpx` with realistic browser headers (Chrome/macOS). If extracted content is fewer than 300 characters after cleanup, considers it blocked.
 2. **Jina AI Reader** (`r.jina.ai/{url}`) — free public proxy that bypasses most blocks and soft paywalls. Returns plain text.

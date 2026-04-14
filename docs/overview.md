@@ -57,6 +57,22 @@ fetcher_node    ← same 3-strategy cascade as normal mode
 
 Triggered via CLI (`--url`) or API (`"url"` field in `POST /api/run`).
 
+### Direct topic mode (`--topic`)
+
+When `state["direct_topic"]` is set, the entire discovery pipeline is bypassed — including the fetcher. The selector builds a synthetic `selected_article` whose `full_content` is the topic itself, instructing the writer to generate original content from LLM knowledge alone:
+
+```
+[scraper_node]  → skipped (logs "Direct TOPIC mode — skipping RSS scrape")
+[filter_node]   → skipped (logs "Direct TOPIC mode — skipping LLM scoring")
+[selector_node] → builds synthetic selected_article {title=topic, url="topic://...", full_content=topic prompt}
+[fetcher_node]  → skipped (logs "Direct TOPIC mode — fetcher bypassed")
+    ↓  (writer → critic loop → formatter → output_saver unchanged)
+```
+
+The full writer → debate panel → formatter chain still runs. No source URL is needed — the writer produces an original article from the topic description, validated by the same critic loop and exported in all three formats.
+
+Triggered via CLI (`--topic` / `-t`) or API (`"topic"` field in `POST /api/run`).
+
 ---
 
 The writer ↔ critic loop is capped at `MAX_CRITIQUE_ITERATIONS` (default: 3). If the score does not reach 7/10 after 3 attempts, the pipeline continues. `multi_critic_node` tracks the highest-scoring draft across iterations (`best_draft` / `best_score`) and reverts to it if the final iteration produces a regression. When `stagnation_count >= 1` (no improvement from the previous iteration), `writer_node` automatically switches to a conservative revision strategy.
@@ -85,7 +101,7 @@ The active category is passed in `state["active_category"]` and read by `scraper
 
 ```
 .
-├── main.py              # Entry point (CLI: --resume, --list, --category, --lang, --url)
+├── main.py              # Entry point (CLI: --resume, --list, --category, --lang, --url, --topic)
 ├── graph.py             # LangGraph StateGraph + SQLite checkpointer
 ├── state.py             # PipelineState (TypedDict) + ACPMessage (Pydantic)
 ├── config.py            # Centralized config: CATEGORIES, DEFAULT_CATEGORY, .env
@@ -138,6 +154,7 @@ Key state fields:
 | `active_category` | `str` | Run category (`"infra"`, `"security"`, `"ai"`, etc.) |
 | `output_language` | `str` | Output language code: `"fr"`, `"en"`, `"ar"` |
 | `direct_url` | `str` (optional) | If set, scraper/filter/selector are bypassed and the pipeline runs directly on this URL |
+| `direct_topic` | `str` (optional) | If set, scraper/filter/selector/fetcher are all bypassed; the selector builds a synthetic article from the topic and the writer generates original content from LLM knowledge |
 | `debate_personas` | `list` (optional) | 3 generated personas — populated on first iteration, reused on revisions |
 | `debate_transcript` | `str` (optional) | Full debate text from last `multi_critic_node` call |
 | `best_draft` | `str` (optional) | Highest-scoring draft seen so far — restored if final iteration regresses |

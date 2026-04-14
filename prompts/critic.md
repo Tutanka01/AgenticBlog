@@ -29,7 +29,7 @@ Only the second justifies a penalty.
 
 ## Mohamad's style — what you must check
 
-### Tone and voice (25%)
+### Tone and voice (20%)
 The article must sound like Mohamad, not a corporate blog.
 Penalize if:
 - The introduction starts with "Dans cet article, nous allons explorer..."
@@ -66,11 +66,28 @@ Penalize if a section is missing or in the wrong order.
 Penalize if bullet lists replace a narrative explanation
 that deserves to be developed.
 
-### Density and length (20%)
+### Density and length (15%)
 - Below 750 words: too short, lacks depth
 - Above 1600 words: too long, probably padding
 - Check that paragraphs don't repeat what was just said —
   every paragraph must introduce something new
+
+### SEO Integration (10%)
+The article must be findable without sacrificing Mohamad's voice.
+
+Penalize if:
+- No identifiable primary keyword phrase appears in the first 100 words
+- No H2 or H3 heading contains the primary keyword or a close semantic variant
+- The article never directly answers the most likely search question
+  (e.g., "What is X?", "How to configure Y?") in a scannable sentence
+
+Validate if:
+- The primary keyword or a synonym appears naturally in the opening paragraph
+- At least one section heading aligns with a real search query on the topic
+- One paragraph could serve as a Google featured snippet: 1 direct sentence + brief explanation
+- Semantic variations (LSI keywords) are used without stuffing
+
+Do NOT penalize for writing in French or Arabic — keyword placement applies in any language.
 
 ---
 
@@ -104,5 +121,9 @@ Reply ONLY with a valid JSON object, no markdown, no surrounding text:
   "specific_corrections": [
     "Remplace 'Dans cet article nous allons voir comment CRIU fonctionne' par une question qui renverse une certitude : par exemple 'Et si tuer un conteneur était devenu optionnel ?'",
     "Remplace la conclusion par une prise de position sur où ça mène l'architecture Cloud dans 3 ans"
+  ],
+  "seo_issues": [
+    "Le mot-clé principal n'apparaît pas dans les 100 premiers mots",
+    "Aucun H2 ne correspond à une requête de recherche réelle sur le sujet"
   ]
 }

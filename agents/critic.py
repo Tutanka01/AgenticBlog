@@ -31,6 +31,7 @@ def critic_node(state: PipelineState) -> dict:
     feedback = ""
     score = 0
     issues: list[str] = []
+    seo_issues: list[str] = []
     tokens_used = 0
 
     try:
@@ -50,8 +51,12 @@ def critic_node(state: PipelineState) -> dict:
             score = result.get("score", 0)
             issues = result.get("issues", [])
             corrections = result.get("specific_corrections", [])
+            seo_issues = result.get("seo_issues", [])
             approved = result.get("approved", score >= APPROVAL_THRESHOLD)
-            feedback = "\n".join(corrections) if corrections else "\n".join(issues)
+            all_feedback = corrections if corrections else issues
+            if seo_issues:
+                all_feedback = all_feedback + [f"[SEO] {s}" for s in seo_issues]
+            feedback = "\n".join(all_feedback)
         else:
             # If the LLM does not return valid JSON, auto-approve to avoid looping
             print("[CRITIC]  Could not parse JSON response — auto-approving")
@@ -66,6 +71,8 @@ def critic_node(state: PipelineState) -> dict:
     print(f"[CRITIC]     Score: {score}/10 — {status}")
     if issues:
         print(f"             Issues: {'; '.join(issues[:2])}")
+    if seo_issues:
+        print(f"             SEO: {'; '.join(seo_issues[:2])}")
 
     msg = ACPMessage(
         sender="critic",

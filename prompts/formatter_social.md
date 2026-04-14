@@ -21,10 +21,11 @@ Rules:
 - Never the raw RSS title
 - Direct and punchy — conveys the real stake, not the generic topic
 - No "How to...", no "Guide to...", no "Introduction to..."
-- Maximum 80 characters
+- **Maximum 60 characters** (Google truncates at ~60 — every character counts)
+- Front-load the primary keyword — what appears first gets the most weight
 - Voice examples (French — reproduce the directness in {output_language}):
-  "CRIU : et si tuer vos conteneurs était devenu optionnel ?"
-  "S3 régional : AWS vient de changer les règles du naming"
+  "CRIU : et si tuer vos conteneurs était optionnel ?"
+  "S3 : AWS vient de changer les règles du naming"
 
 ---
 
@@ -76,6 +77,33 @@ Mandatory structure with timecodes:
 
 ---
 
+---
+
+## FORMAT 5 — SEO Metadata (English only, regardless of article language)
+
+Generate structured SEO metadata for this article.
+**Always output this section in English**, even if the article is in French or Arabic.
+
+Rules:
+- **primary_keyword**: the single most important keyword phrase (2–4 words) a reader would Google
+  to find this article. Must be specific, not generic ("kubernetes pod checkpointing" not "kubernetes")
+- **keywords**: 5 to 8 targeted search terms, mix of exact and semantic variants,
+  ordered by relevance. Include the primary_keyword as the first item.
+- **slug**: URL-friendly version of the title — lowercase, hyphens only, max 60 characters,
+  must contain the primary keyword. Example: "kubernetes-pod-checkpointing-criu"
+- **schema_type**: one of "TechArticle", "HowTo", "NewsArticle" — pick the closest match:
+  - TechArticle → deep technical explanation or concept analysis
+  - HowTo → step-by-step commands or configuration
+  - NewsArticle → announcement of a new feature, CVE, or release
+- **search_intent**: one of "informational", "navigational", "how-to" — what the reader wants
+- **internal_links**: 2–3 topic suggestions for internal links this article should link to.
+  These must be specific sub-topics closely related to the article, not generic suggestions.
+  Use the exact phrases an author would use as anchor text in a sentence.
+  Example: `kubernetes network policies, eBPF observability, cilium vs calico`
+  These will be shown to the editor as linking suggestions — do NOT invent article URLs.
+
+---
+
 ## Rendering instruction
 
 Reply ONLY with these markers (no other text):
@@ -91,3 +119,11 @@ Reply ONLY with these markers (no other text):
 
 ===YOUTUBE===
 [YouTube script with timecodes]
+
+===SEO_META===
+primary_keyword: [2-4 word exact match keyword phrase, in English]
+keywords: [kw1, kw2, kw3, kw4, kw5, kw6]
+slug: [url-slug-here]
+schema_type: [TechArticle|HowTo|NewsArticle]
+search_intent: [informational|how-to|navigational]
+internal_links: [anchor text 1, anchor text 2, anchor text 3]
