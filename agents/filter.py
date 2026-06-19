@@ -2,8 +2,34 @@ import json
 import re
 
 from state import PipelineState, ACPMessage
-from config import LLM_MODEL, LLM_TEMPERATURE, FILTER_THRESHOLD, TOP_N_FILTERED, PROMPTS_DIR, CATEGORIES, DEFAULT_CATEGORY
+from config import (
+    LLM_MODEL, LLM_TEMPERATURE, FILTER_THRESHOLD, TOP_N_FILTERED,
+    PROMPTS_DIR, CATEGORIES, DEFAULT_CATEGORY, ACP_DATA_MARKER,
+)
 from llm import llm_client
+
+
+def _emit_candidates(scored: list[dict], raw_count: int) -> None:
+    """Stream the full scored shortlist (with reasons) to the live UI."""
+    payload = {
+        "type": "candidates",
+        "status": "done",
+        "label": f"{len(scored)} kept / {raw_count} scored",
+        "raw_count": raw_count,
+        "threshold": FILTER_THRESHOLD,
+        "candidates": [
+            {
+                "title": a.get("title", ""),
+                "url": a.get("url", ""),
+                "source": a.get("source", ""),
+                "score": a.get("score", 0),
+                "reason": a.get("reason", ""),
+                "kept": a.get("kept", True),
+            }
+            for a in scored
+        ],
+    }
+    print(f"[FILTER] {ACP_DATA_MARKER} " + json.dumps(payload, ensure_ascii=False))
 
 
 def _build_articles_text(articles: list[dict]) -> str:
@@ -83,6 +109,15 @@ def filter_node(state: PipelineState) -> dict:
     print(f"[FILTER]     Scored {len(raw)} articles — kept {len(filtered)} above threshold {FILTER_THRESHOLD}")
     if top:
         print(f"             Top: \"{top['title']}\" (score: {top['score']})")
+
+    # Stream the competition to the live UI: kept articles first, then a few
+    # rejected ones so the reader sees *why* the shortlist looks the way it does.
+    kept_urls = {a["url"] for a in filtered}
+    ranked_all = sorted(enriched, key=lambda x: x["score"], reverse=True)
+    shortlist = filtered + [a for a in ranked_all if a["url"] not in kept_urls][:6]
+    for a in shortlist:
+        a["kept"] = a["url"] in kept_urls
+    _emit_candidates(shortlist, len(raw))
 
     msg = ACPMessage(
         sender="filter",

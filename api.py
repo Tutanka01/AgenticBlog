@@ -18,11 +18,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
+from config import (
+    ACP_DATA_MARKER, CATEGORIES, DEFAULT_CATEGORY, OUTPUT_LANGUAGE_LABELS,
+    DEFAULT_OUTPUT_LANGUAGE, FILTER_THRESHOLD, MAX_ARTICLES_TO_FETCH,
+    TOP_N_FILTERED, MAX_CRITIQUE_ITERATIONS, NUM_DEBATE_PERSONAS, DEBATE_ROUNDS,
+    LLM_MODEL, DEBATE_MODEL,
+)
+
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "output"
+MEMORY_DIR = BASE_DIR / "memory"
 LOG_PATTERN = re.compile(r"\[(\w+)\]\s+(.+)")
+
+# Category → accent colour, shared with the frontend palette.
+CATEGORY_COLORS = {
+    "infra": "#22C55E", "security": "#EF4444", "ai": "#8B5CF6",
+    "cloud": "#3B82F6", "africa": "#F59E0B",
+}
 
 NODE_MAP = {
     "output": "saver",
@@ -182,6 +196,24 @@ class RunManager:
 
         raw_node, message = match.groups()
         node = NODE_MAP.get(raw_node.lower(), raw_node.lower())
+
+        # Structured data channel: `[NODE] __ACPDATA__ {json}` — carries the rich
+        # payloads (candidates, personas, debate transcript) the live UI renders.
+        if message.startswith(ACP_DATA_MARKER):
+            raw_json = message[len(ACP_DATA_MARKER):].strip()
+            try:
+                data = json.loads(raw_json)
+            except Exception:
+                data = {}
+            return {
+                "ts": ts,
+                "node": node,
+                "status": data.get("status", "running"),
+                "message": data.get("label", ""),
+                "meta": {},
+                "data": data,
+            }
+
         status = self._derive_status(message)
         return {
             "ts": ts,
@@ -349,6 +381,8 @@ def _normalize_metadata(meta: dict[str, Any], run_dir: Path) -> dict[str, Any]:
         "run_id": run_id,
         "run_date": meta.get("run_date") or run_dir.parent.name,
         "active_category": meta.get("active_category", "infra"),
+        "output_language": meta.get("output_language", "en"),
+        "mode": meta.get("mode", "category"),
         "total_tokens_used": meta.get("total_tokens_used", meta.get("tokens_used", 0)),
         "duration_seconds": meta.get("duration_seconds", 0),
         "iteration_count": meta.get("iteration_count", meta.get("nb_iterations_critique", 0)),
@@ -359,6 +393,7 @@ def _normalize_metadata(meta: dict[str, Any], run_dir: Path) -> dict[str, Any]:
             "url": article.get("url", ""),
             "source_name": article.get("source_name", article.get("source", "")),
         },
+        "personas": meta.get("personas", []),
         "word_count": word_count or 0,
         "fetch_method": meta.get("fetch_method", ""),
         "security_flag": meta.get("security_flag", False),
@@ -430,6 +465,115 @@ async def get_run(run_id: str) -> dict[str, Any]:
         "linkedin_post": (run_dir / "linkedin_post.md").read_text(encoding="utf-8") if (run_dir / "linkedin_post.md").exists() else "",
         "youtube_script": (run_dir / "youtube_script.md").read_text(encoding="utf-8") if (run_dir / "youtube_script.md").exists() else "",
     }
+
+
+@app.get("/api/runs/{run_id}/state")
+async def get_run_state(run_id: str) -> dict[str, Any]:
+    """Full pipeline state for a run: candidates, debate, iterations, memory context."""
+    run_dir = _find_run_dir(run_id)
+    if not run_dir:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    state_path = run_dir / "run_state.json"
+    if state_path.exists():
+        return _load_json(state_path)
+
+    # Older runs predate run_state.json — synthesize a minimal shape from metadata
+    # so the UI degrades gracefully instead of erroring.
+    meta = _load_json(run_dir / "run_metadata.json")
+    return {
+        "run_id": meta.get("run_id", run_dir.name),
+        "mode": meta.get("mode", "category"),
+        "selected_article": meta.get("article_selected", {}),
+        "candidates": [
+            {"title": s.get("title", ""), "score": s.get("score", 0), "reason": "", "kept": True}
+            for s in meta.get("scores", [])
+        ],
+        "debate": {
+            "personas": [], "transcript": "",
+            "final_score": meta.get("critique_score", 0),
+            "approved": meta.get("critique_approved", False),
+            "security_flag": meta.get("security_flag", False),
+        },
+        "iteration_log": [],
+        "iteration_count": meta.get("nb_iterations_critique", 0),
+        "memory_context": "",
+        "tokens_used": meta.get("tokens_used", 0),
+        "legacy": True,
+    }
+
+
+@app.get("/api/config")
+async def get_config() -> dict[str, Any]:
+    """Categories, languages, and pipeline thresholds — drives Compose and Settings."""
+    return {
+        "categories": [
+            {
+                "id": cid,
+                "label": c.get("label", cid),
+                "color": CATEGORY_COLORS.get(cid, "#8B5CF6"),
+                "feeds": c.get("feeds", []),
+                "topics": c.get("topics", []),
+            }
+            for cid, c in CATEGORIES.items()
+        ],
+        "default_category": DEFAULT_CATEGORY,
+        "languages": [{"id": k, "label": v} for k, v in OUTPUT_LANGUAGE_LABELS.items()],
+        "default_language": DEFAULT_OUTPUT_LANGUAGE,
+        "thresholds": {
+            "filter_threshold": FILTER_THRESHOLD,
+            "max_articles_to_fetch": MAX_ARTICLES_TO_FETCH,
+            "top_n_filtered": TOP_N_FILTERED,
+            "max_critique_iterations": MAX_CRITIQUE_ITERATIONS,
+            "num_debate_personas": NUM_DEBATE_PERSONAS,
+            "debate_rounds": DEBATE_ROUNDS,
+        },
+        "models": {"writer": LLM_MODEL, "debate": DEBATE_MODEL},
+    }
+
+
+@app.get("/api/memory")
+async def get_memory() -> dict[str, Any]:
+    """Editorial memory: recent runs index, per-category topics, weighted lessons."""
+    recent_runs: list[dict[str, Any]] = []
+    index_path = MEMORY_DIR / "MEMORY.md"
+    if index_path.exists():
+        from memory_manager import _parse_memory_table
+        for r in _parse_memory_table(index_path.read_text(encoding="utf-8")):
+            recent_runs.append({
+                "date": r["date_str"],
+                "title": r["title"],
+                "category": r["category"],
+                "score": r["score"],
+                "keywords": r["keywords"],
+            })
+
+    topics: dict[str, str] = {}
+    topics_dir = MEMORY_DIR / "topics"
+    if topics_dir.exists():
+        for f in sorted(topics_dir.glob("*.md")):
+            topics[f.stem] = f.read_text(encoding="utf-8")
+
+    lessons: dict[str, list[dict[str, Any]]] = {}
+    lessons_dir = MEMORY_DIR / "lessons"
+    if lessons_dir.exists():
+        from memory_manager import _parse_lessons
+        for f in sorted(lessons_dir.glob("*.md")):
+            parsed = _parse_lessons(f.read_text(encoding="utf-8"))
+            lessons[f.stem] = [
+                {
+                    "date": l["date_str"],
+                    "score": l["score"],
+                    "weight": l["weight"],
+                    "iterations": l["iteration_count"],
+                    "critique": l["critique_text"],
+                    "article": l["article_title"],
+                    "personas": l["personas_used"],
+                }
+                for l in parsed
+            ]
+
+    return {"recent_runs": recent_runs, "topics": topics, "lessons": lessons}
 
 
 @app.post("/api/run")

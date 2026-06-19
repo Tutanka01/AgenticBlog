@@ -140,6 +140,12 @@ def writer_node(state: PipelineState) -> dict:
     return {
         "draft": draft,
         "iteration_count": iteration,
+        "iteration_log": [{
+            "kind": "draft",
+            "iteration": iteration,
+            "words": word_count,
+            "tokens": tokens_used,
+        }],
         "total_tokens_used": state.get("total_tokens_used", 0) + tokens_used,
         "messages": [msg],
     }

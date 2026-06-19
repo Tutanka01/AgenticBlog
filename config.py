@@ -31,6 +31,12 @@ MAX_ARTICLES_TO_FETCH   = int(os.getenv("MAX_ARTICLES_TO_FETCH",   "40"))
 TOP_N_FILTERED          = int(os.getenv("TOP_N_FILTERED",          "5"))
 MAX_CRITIQUE_ITERATIONS = int(os.getenv("MAX_CRITIQUE_ITERATIONS", "3"))
 
+# ── Live data channel ─────────────────────────────────────────────────────────
+# Agents print a line `[NODE] __ACPDATA__ {json}` to stream structured payloads
+# (candidates, personas, debate transcript…) to the API over the same stdout pipe
+# the human-readable logs use. api.py parses these into SSE `event.data`.
+ACP_DATA_MARKER = "__ACPDATA__"
+
 # ── Paths ─────────────────────────────────────────────────────────────────────
 CHECKPOINT_DB = os.getenv("CHECKPOINT_DB", "memory/checkpoints.sqlite")
 OUTPUT_DIR    = Path(os.getenv("OUTPUT_DIR",  "./output"))

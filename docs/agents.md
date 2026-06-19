@@ -38,6 +38,8 @@ Otherwise, sends all articles to the LLM in a single request using the `filter.m
 
 **Fallback:** if the LLM fails or returns invalid JSON, all articles receive a score of 5 (they pass the filter, but none is ranked above the others).
 
+**Live data:** emits `[FILTER] __ACPDATA__ {candidates, raw_count, threshold}` — the scored shortlist (kept articles plus a few that were cut, each with its score and reason) — consumed live by the Live view's Curation panel.
+
 ---
 
 ## selector
@@ -79,6 +81,8 @@ After selection, builds `memory_context` (via `build_writer_context`): a Markdow
 
 **Fallback:** if `filtered_articles` is empty, uses `raw_articles[0]`.
 
+**Live data:** emits `[SELECTOR] __ACPDATA__ {selected, breakdown, mode, memory_runs}` — the chosen article plus its composite-score breakdown (relevance / freshness / novelty) — for the Live view's selection card.
+
 See `docs/memory.md` for theoretical foundations.
 
 ---
@@ -106,8 +110,10 @@ The `fetch_method` field records the strategy used (`"direct"`, `"jina"`, `"rss_
 ## writer
 
 **File:** `agents/writer.py`
-**Reads:** `selected_article` (including `full_content`), `critic_feedback`, `iteration_count`, `stagnation_count`, `debate_transcript`, `output_language`, `prompts/writer.md`
-**Writes:** `draft`, `iteration_count`, `total_tokens_used`, `messages`
+**Reads:** `selected_article` (including `full_content`), `critic_feedback`, `iteration_count`, `stagnation_count`, `debate_transcript`, `memory_context`, `output_language`, `prompts/writer.md`
+**Writes:** `draft`, `iteration_count`, `iteration_log` (append), `total_tokens_used`, `messages`
+
+Each draft appends a `{kind: "draft", iteration, words, tokens}` entry to `iteration_log` (append-only, `operator.add`), powering the Live score trajectory and the Review provenance timeline.
 
 Uses `full_content` over `summary` to feed the prompt — the LLM gets the actual article content, not just the RSS summary.
 
@@ -133,7 +139,9 @@ This is grounded in the finding that LLMs cannot reliably self-correct on factua
 
 **File:** `agents/multi_critic.py`
 **Reads:** `draft`, `selected_article`, `output_language`, `debate_personas` (optional — cached), `best_draft`, `best_score`, `stagnation_count`, `prompts/persona_generator.md`, `prompts/debate_round.md`, `prompts/debate_synthesizer.md`
-**Writes:** `critique_approved`, `critic_feedback`, `debate_personas`, `debate_transcript`, `security_flag`, `best_draft`, `best_score`, `stagnation_count`, `total_tokens_used`, `messages`
+**Writes:** `critique_approved`, `critic_feedback`, `debate_personas`, `debate_transcript`, `security_flag`, `best_draft`, `best_score`, `stagnation_count`, `iteration_log` (append), `total_tokens_used`, `messages`
+
+**Live data & history:** streams the panel as it runs — emits `[MULTI_CRITIC] __ACPDATA__ {personas}` (rich persona objects) when the panel is introduced, then `{transcript, score, approved, security_flag, …}` after the verdict — so the Live debate panel renders in real time. Each verdict also appends a `{kind: "critique", iteration, score, approved, stagnation, security_flag}` entry to `iteration_log`.
 
 > `agents/critic.py` (single-critic, monolithic) is kept untouched as rollback reference.
 > `graph.py` now points to `multi_critic_node` — the node is still registered as `"critic"`
@@ -271,10 +279,16 @@ Same LLM call as for title/description. `prompts/formatter_social.md` requests 4
 ## output_saver
 
 **File:** `agents/output_saver.py`
-**Reads:** `blog_post`, `linkedin_post`, `youtube_script`, `run_id`, `run_date`, `filtered_articles`, `selected_article`, `iteration_count`, `total_tokens_used`
+**Reads:** `blog_post`, `linkedin_post`, `youtube_script`, `run_id`, `run_date`, `raw_articles`, `filtered_articles`, `selected_article`, `debate_personas`, `debate_transcript`, `iteration_log`, `iteration_count`, `critique_approved`, `security_flag`, `best_score`, `stagnation_count`, `memory_context`, `direct_url`/`direct_topic` (optional), `total_tokens_used`
 **Writes:** `messages` + `memory/MEMORY.md` + `memory/topics/{category}.md`
 
-Creates `output/{run_date}/{run_id[:8]}/` and writes the 4 files. Multiple runs on the same day coexist without ever overwriting each other. `run_metadata.json` contains all run metadata for post-run analysis without needing to re-read the Markdown files.
+Creates `output/{run_date}/{run_id[:8]}/` and writes **five** files. Multiple runs on the same day coexist without ever overwriting each other.
+
+- `blog_post.md`, `linkedin_post.md`, `youtube_script.md` — the outputs.
+- `run_metadata.json` — lightweight run summary (now also includes `mode`, `critique_score`, `personas`, `word_count`) for the run list and History.
+- `run_state.json` — the **full** pipeline state: scored `candidates` (with reasons), `selected_article`, the `debate` block (personas, transcript, final/best score, security flag), `iteration_log`, and the `memory_context` injected into the writer. This is the artifact the rich UI reads — `GET /api/runs/{id}/state` serves it, and the Review › Provenance tab renders it.
+
+`mode` is derived as `topic` / `url` / `category` from the `direct_topic` / `direct_url` state flags.
 
 After writing files, calls `memory_manager.update_memory(state)` to update the MEMORY.md index and the corresponding topic file. This operation is **non-blocking**: a memory update error is logged but does not fail the pipeline.
 

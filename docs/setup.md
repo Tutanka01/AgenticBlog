@@ -224,7 +224,8 @@ output/
     │   ├── blog_post.md        ← YAML front matter + validated draft (unchanged)
     │   ├── linkedin_post.md    ← Post ≤ 280 characters + 3 hashtags
     │   ├── youtube_script.md   ← 60–90s script with timecodes
-    │   └── run_metadata.json   ← run_id, article, scores, iterations, tokens
+    │   ├── run_metadata.json   ← lightweight summary: mode, score, personas, word_count, tokens
+    │   └── run_state.json      ← full state: candidates, debate transcript, iteration_log, memory_context
     └── e5f6a7b8/               ← afternoon run (never overwritten)
         ├── blog_post.md
         └── ...

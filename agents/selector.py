@@ -1,7 +1,29 @@
+import json
 from datetime import datetime, timezone
 
 from state import PipelineState, ACPMessage
+from config import ACP_DATA_MARKER
 from memory_manager import load_memory_index, get_novelty_penalty, build_writer_context
+
+
+def _emit_selection(selected: dict, mode: str, breakdown: dict | None = None,
+                    memory_runs: int = 0) -> None:
+    """Stream the chosen article + scoring breakdown to the live UI."""
+    payload = {
+        "type": "selection",
+        "status": "done",
+        "label": selected.get("title", "")[:70],
+        "mode": mode,
+        "memory_runs": memory_runs,
+        "selected": {
+            "title": selected.get("title", ""),
+            "url": selected.get("url", ""),
+            "source": selected.get("source", ""),
+            "score": selected.get("score", 0),
+        },
+        "breakdown": breakdown or {},
+    }
+    print(f"[SELECTOR] {ACP_DATA_MARKER} " + json.dumps(payload, ensure_ascii=False))
 
 
 def _freshness_bonus(article: dict) -> float:
@@ -28,6 +50,7 @@ def selector_node(state: PipelineState) -> dict:
         recent_runs = load_memory_index()
         memory_context = build_writer_context(selected, recent_runs)
         print(f"[SELECTOR]   Direct URL mode — using provided URL: {url[:60]}...")
+        _emit_selection(selected, mode="url", memory_runs=len(recent_runs))
         msg = ACPMessage(
             sender="selector",
             receiver="fetcher",
@@ -57,6 +80,7 @@ def selector_node(state: PipelineState) -> dict:
         recent_runs = load_memory_index()
         memory_context = build_writer_context(selected, recent_runs)
         print(f"[SELECTOR]   Direct TOPIC mode — synthetic article for: '{topic[:60]}'")
+        _emit_selection(selected, mode="topic", memory_runs=len(recent_runs))
         msg = ACPMessage(
             sender="selector",
             receiver="fetcher",
@@ -74,6 +98,8 @@ def selector_node(state: PipelineState) -> dict:
         selected = state["raw_articles"][0] if state["raw_articles"] else {}
         print("[SELECTOR]   No article passed filter — using first raw article as fallback")
         memory_context = ""
+        _emit_selection(selected, mode="category",
+                        breakdown={"fallback": True}, memory_runs=len(recent_runs))
     else:
         # Composite score: LLM score (0-10) + freshness bonus (0-1) - novelty penalty (0-2)
         def _composite(a: dict) -> float:
@@ -90,6 +116,17 @@ def selector_node(state: PipelineState) -> dict:
             print(f"             Memory: {len(recent_runs)} runs loaded")
 
         memory_context = build_writer_context(selected, recent_runs)
+        _emit_selection(
+            selected,
+            mode="category",
+            breakdown={
+                "llm_score": selected["score"],
+                "freshness_bonus": bonus,
+                "novelty_penalty": penalty,
+                "composite": round(selected["score"] + bonus - penalty, 2),
+            },
+            memory_runs=len(recent_runs),
+        )
 
     msg = ACPMessage(
         sender="selector",

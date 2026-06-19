@@ -1,5 +1,6 @@
 import { ExternalLink, PlayCircle, Search, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { MODE_META } from '../../lib/pipeline';
 
 const CATEGORY_COLORS = {
   security: '#EF4444',
@@ -21,7 +22,7 @@ function scoreBg(score) {
   return 'rgba(239,68,68,0.1)';
 }
 
-export default function HistoryView({ runs, onOpenOutputs, onResume, onDelete, onToast }) {
+export default function HistoryView({ runs, onOpenReview, onResume, onDelete, onToast }) {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [page, setPage] = useState(1);
@@ -169,7 +170,10 @@ export default function HistoryView({ runs, onOpenOutputs, onResume, onDelete, o
                     style={{ maxWidth: 320, color: 'var(--text-secondary)' }}
                     title={run.selected_article?.title || ''}
                   >
-                    <span className="line-clamp-1 block overflow-hidden text-ellipsis">
+                    <span className="line-clamp-1 flex items-center gap-1.5 overflow-hidden text-ellipsis">
+                      <span style={{ color: (MODE_META[run.mode] || MODE_META.category).color, flexShrink: 0 }} title={(MODE_META[run.mode] || MODE_META.category).label}>
+                        {(MODE_META[run.mode] || MODE_META.category).glyph}
+                      </span>
                       {run.selected_article?.title || '—'}
                     </span>
                   </td>
@@ -193,8 +197,8 @@ export default function HistoryView({ runs, onOpenOutputs, onResume, onDelete, o
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => onOpenOutputs(run.slug || run.run_id)}
-                        title="View outputs"
+                        onClick={() => onOpenReview(run.slug || run.run_id)}
+                        title="Open in Review"
                         className="rounded p-1.5 transition-colors duration-100"
                         style={{ color: 'var(--text-secondary)' }}
                         onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}

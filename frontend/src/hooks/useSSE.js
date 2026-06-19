@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+// Streams pipeline events. Beyond plain log lines, agents emit a structured
+// `data` channel (candidates, personas, debate transcript) which we merge into
+// per-node state so the Live views can render rich panels in real time.
 export function useSSE(url) {
   const sourceRef = useRef(null);
   const [logs, setLogs] = useState([]);
@@ -8,9 +11,7 @@ export function useSSE(url) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!url) {
-      return;
-    }
+    if (!url) return undefined;
 
     const source = new EventSource(url);
     sourceRef.current = source;
@@ -20,24 +21,23 @@ export function useSSE(url) {
     source.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
+
         setLogs((prev) => {
           const next = [...prev, payload];
-          if (next.length > 500) {
-            return next.slice(next.length - 500);
-          }
-          return next;
+          return next.length > 600 ? next.slice(next.length - 600) : next;
         });
 
         if (payload?.node) {
           setNodeStates((prev) => {
             const next = new Map(prev);
             const existing = prev.get(payload.node) || {};
-            // Merge meta across events so data from earlier logs (e.g. persona names)
-            // is preserved when the final score event arrives.
             next.set(payload.node, {
-              status: payload.status,
-              message: payload.message,
+              status: payload.status || existing.status || 'running',
+              message: payload.message ?? existing.message ?? '',
               meta: { ...(existing.meta || {}), ...(payload.meta || {}) },
+              // Shallow-merge structured payloads so e.g. the personas event and
+              // the later debate event for the critic node both survive.
+              data: payload.data ? { ...(existing.data || {}), ...payload.data } : existing.data,
               ts: payload.ts,
             });
             return next;
@@ -67,17 +67,17 @@ export function useSSE(url) {
 
   const latestEvent = useMemo(() => (logs.length ? logs[logs.length - 1] : null), [logs]);
 
+  // Every debate verdict in order — powers the live score trajectory.
+  const debateHistory = useMemo(
+    () => logs.filter((l) => l?.node === 'critic' && l?.data?.type === 'debate').map((l) => l.data),
+    [logs]
+  );
+
   const resetLogs = () => {
     setLogs([]);
     setNodeStates(new Map());
+    setError('');
   };
 
-  return {
-    nodeStates,
-    logs,
-    isRunning,
-    error,
-    latestEvent,
-    resetLogs,
-  };
+  return { nodeStates, logs, debateHistory, isRunning, error, latestEvent, resetLogs };
 }

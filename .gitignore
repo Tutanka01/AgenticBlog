@@ -12,3 +12,5 @@ CLAUDE.md
 .claude/
 
 .env.bak
+# Visual brainstorming companion
+.superpowers/

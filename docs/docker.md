@@ -85,10 +85,9 @@ docker compose up
 ## Quick smoke test
 
 1. Open `http://localhost:3000`
-2. Verify the `Pipeline` view loads
-3. Launch a run with a category
-4. Check live logs and node transitions
-5. Verify the `Outputs` and `History` views
+2. From `Compose`, pick a category (or URL / topic) and launch a run
+3. On `Live run`, check the pipeline graph, scored candidates, the debate panel and live logs
+4. Verify the `Review`, `History` and `Memory` views
 
 ## Troubleshooting
 

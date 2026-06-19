@@ -32,6 +32,10 @@ class PipelineState(TypedDict):
     iteration_count: int            # incremented by writer, max=MAX_CRITIQUE_ITERATIONS
     critique_approved: bool
 
+    # Per-iteration history (append-only): one entry per writer draft and per critic verdict.
+    # Powers the Live "score trajectory" and the Review provenance timeline.
+    iteration_log: Annotated[list[dict], operator.add]
+
     # Final outputs
     blog_post: str
     linkedin_post: str

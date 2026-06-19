@@ -4,7 +4,8 @@
 
 - Local setup and variables: `docs/setup.md`
 - Agent contracts: `docs/agents.md`
-- Frontend (React/Vite/Tailwind): `docs/frontend.md`
+- Multi-critic debate panel: `docs/multi_critic.md`
+- Frontend (React/Vite/Tailwind, run-lifecycle IA): `docs/frontend.md`
 - Docker deployment: `docs/docker.md`
 - Editorial memory (architecture + papers): `docs/memory.md`
 
@@ -106,6 +107,8 @@ The active category is passed in `state["active_category"]` and read by `scraper
 ├── state.py             # PipelineState (TypedDict) + ACPMessage (Pydantic)
 ├── config.py            # Centralized config: CATEGORIES, DEFAULT_CATEGORY, .env
 ├── llm.py               # Shared OpenAI client (OpenRouter headers auto-injected)
+├── memory_manager.py    # Editorial memory: MEMORY.md index, topics, weighted lessons (decay)
+├── api.py               # FastAPI + SSE backend (parses the __ACPDATA__ live data channel)
 ├── .env                 # Environment variables (not committed)
 ├── .env.example         # Template to copy
 ├── requirements.txt
@@ -128,7 +131,11 @@ The active category is passed in `state["active_category"]` and read by `scraper
 │   ├── debate_synthesizer.md   # Mohamad's judge: scores against 4 editorial criteria using debate as evidence
 │   ├── formatter.md            # (kept, not used — replaced by formatter_social.md)
 │   └── formatter_social.md     # LinkedIn + YouTube only
-├── memory/
+├── memory/                 # Editorial memory (Markdown-first) + LangGraph checkpoints
+│   ├── MEMORY.md           # Recent-runs index + topics covered (novelty window)
+│   ├── topics/{cat}.md     # Per-category log of covered angles
+│   ├── lessons/{cat}.md    # Weighted meta-guidelines distilled from critiques (decay)
+│   ├── archive/            # Overflow of the MEMORY.md index
 │   └── checkpoints.sqlite  # Managed automatically by LangGraph
 └── output/
     └── {run_date}/
@@ -136,7 +143,8 @@ The active category is passed in `state["active_category"]` and read by `scraper
             ├── blog_post.md
             ├── linkedin_post.md
             ├── youtube_script.md
-            └── run_metadata.json
+            ├── run_metadata.json   # lightweight summary (mode, score, personas, word_count)
+            └── run_state.json      # full state: candidates, debate, iteration_log, memory_context
 ```
 
 ---
@@ -160,6 +168,7 @@ Key state fields:
 | `best_draft` | `str` (optional) | Highest-scoring draft seen so far — restored if final iteration regresses |
 | `best_score` | `int` (optional) | Score of `best_draft` — used to detect regression and stagnation |
 | `stagnation_count` | `int` (optional) | Consecutive iterations with no score improvement — triggers adaptive writer strategy |
+| `iteration_log` | `list` (append) | One entry per writer draft and per critic verdict — powers the Live score trajectory and Review provenance |
 
 ---
 

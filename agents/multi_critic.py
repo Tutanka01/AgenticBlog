@@ -16,8 +16,14 @@ from state import PipelineState, ACPMessage
 from config import (
     LLM_MODEL, LLM_TEMPERATURE, PROMPTS_DIR, OUTPUT_LANGUAGE_LABELS,
     DEBATE_MODEL, NUM_DEBATE_PERSONAS, DEBATE_ROUNDS, MAX_CRITIQUE_ITERATIONS,
+    ACP_DATA_MARKER,
 )
 from llm import llm_client
+
+
+def _emit(payload: dict) -> None:
+    """Stream a structured debate payload to the live UI over stdout."""
+    print(f"[MULTI_CRITIC] {ACP_DATA_MARKER} " + json.dumps(payload, ensure_ascii=False))
 
 APPROVAL_THRESHOLD = 7
 
@@ -247,6 +253,24 @@ def multi_critic_node(state: PipelineState) -> dict:
         names = ", ".join(p.get("name", "?") for p in personas)
         print(f"[MULTI_CRITIC] Reusing personas from iteration 1: {names}")
 
+    # Stream the panel so the live UI can introduce the critics before they argue.
+    _emit({
+        "type": "personas",
+        "status": "running",
+        "label": f"{len(personas)} critics · {DEBATE_ROUNDS} rounds",
+        "iteration": iteration,
+        "personas": [
+            {
+                "name": p.get("name", "?"),
+                "role": p.get("role", ""),
+                "background": p.get("background", ""),
+                "primary_concern": p.get("primary_concern", ""),
+                "tone": p.get("tone", ""),
+            }
+            for p in personas
+        ],
+    })
+
     # ── Step 2: Run debate rounds ─────────────────────────────────────────────
     print(f"[MULTI_CRITIC] Running {DEBATE_ROUNDS} debate rounds ({len(personas)} personas × {DEBATE_ROUNDS} rounds = {len(personas) * DEBATE_ROUNDS} calls)...")
     transcript = ""
@@ -304,6 +328,24 @@ def multi_critic_node(state: PipelineState) -> dict:
     if issues:
         print(f"              Issues: {'; '.join(str(i) for i in issues[:2])}")
 
+    # Stream the full debate so the live UI can render the panel + verdict in real time.
+    _emit({
+        "type": "debate",
+        "status": "done" if approved else "running",
+        "label": f"{score}/10 · {'approved' if approved else 'revise'}",
+        "iteration": iteration,
+        "score": score,
+        "best_score": best_score,
+        "approved": approved,
+        "security_flag": security_flag,
+        "stagnation_count": stagnation_count,
+        "issues": issues if isinstance(issues, list) else [str(issues)],
+        "feedback": feedback,
+        "transcript": transcript,
+        "num_personas": len(personas),
+        "rounds": DEBATE_ROUNDS,
+    })
+
     msg = ACPMessage(
         sender="multi_critic",
         receiver="writer" if not approved else "formatter",
@@ -330,6 +372,15 @@ def multi_critic_node(state: PipelineState) -> dict:
         "best_draft": best_draft,
         "best_score": best_score,
         "stagnation_count": stagnation_count,
+        "iteration_log": [{
+            "kind": "critique",
+            "iteration": iteration,
+            "score": score,
+            "approved": approved,
+            "stagnation": stagnation_count,
+            "security_flag": security_flag,
+            "tokens": total_tokens,
+        }],
         "total_tokens_used": state.get("total_tokens_used", 0) + total_tokens,
         "messages": [msg],
     }

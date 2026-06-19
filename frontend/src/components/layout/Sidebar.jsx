@@ -1,125 +1,111 @@
-import { Activity, Clock3, FolderOutput, Github, Play, Square } from 'lucide-react';
+import { Brain, FileCheck2, History, PenLine, Radio, SlidersHorizontal } from 'lucide-react';
 
-const NAV_ITEMS = [
-  { key: 'pipeline', label: 'Pipeline', icon: Activity },
-  { key: 'outputs', label: 'Outputs', icon: FolderOutput },
-  { key: 'history', label: 'History', icon: Clock3 },
+const GROUPS = [
+  {
+    title: 'Run lifecycle',
+    items: [
+      { key: 'compose', label: 'Compose', icon: PenLine, step: '1' },
+      { key: 'live', label: 'Live run', icon: Radio, step: '2' },
+      { key: 'review', label: 'Review', icon: FileCheck2, step: '3' },
+    ],
+  },
+  {
+    title: 'Library',
+    items: [
+      { key: 'history', label: 'History', icon: History },
+      { key: 'memory', label: 'Memory', icon: Brain },
+    ],
+  },
+  {
+    title: 'System',
+    items: [{ key: 'settings', label: 'Settings', icon: SlidersHorizontal }],
+  },
 ];
 
-const CATEGORY_COLORS = {
-  security: '#EF4444',
-  infra: '#22C55E',
-  ai: '#8B5CF6',
-  cloud: '#3B82F6',
-  africa: '#F59E0B',
-};
+function NavItem({ item, active, isRunning, runCount, onNavigate }) {
+  const Icon = item.icon;
+  const liveDot = item.key === 'live' && isRunning;
+  return (
+    <button
+      type="button"
+      onClick={() => onNavigate(item.key)}
+      className="group relative flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left transition-colors"
+      style={{
+        background: active ? 'var(--bg-elevated)' : 'transparent',
+        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+      }}
+    >
+      {active && (
+        <span
+          className="absolute left-[-10px] top-2 bottom-2 w-[2.5px] rounded-full"
+          style={{ background: 'var(--brand-gradient)' }}
+        />
+      )}
+      <Icon size={16} style={{ opacity: active ? 1 : 0.72, flexShrink: 0 }} />
+      <span style={{ fontSize: 13.5, fontWeight: active ? 600 : 500 }}>{item.label}</span>
 
-export default function Sidebar({
-  activeView,
-  onViewChange,
-  category,
-  onCategoryChange,
-  isRunning,
-  onRunToggle,
-}) {
+      {item.step && (
+        <span className="mono ml-auto" style={{ fontSize: 10, color: active ? 'var(--text-muted)' : 'var(--text-faint)' }}>
+          {item.step}
+        </span>
+      )}
+      {liveDot && <span className="dot live-dot ml-auto" style={{ background: 'var(--accent-green)' }} />}
+      {item.key === 'history' && runCount > 0 && !active && (
+        <span className="mono ml-auto" style={{ fontSize: 10, color: 'var(--text-faint)' }}>{runCount}</span>
+      )}
+    </button>
+  );
+}
+
+export default function Sidebar({ activeView, onNavigate, isRunning, runCount }) {
   return (
     <aside
-      className="flex h-screen w-[220px] flex-col border-r px-3 py-3"
-      style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--bg-border)' }}
+      className="flex h-full flex-col"
+      style={{
+        width: 'var(--sidebar-width)',
+        flexShrink: 0,
+        borderRight: '1px solid var(--bg-border)',
+        background: 'var(--bg-surface)',
+      }}
     >
-      <div className="mb-5 px-1">
-        <div className="flex items-center gap-2">
-          <div
-            className="h-5 w-5 rounded-md"
-            style={{
-              background: 'linear-gradient(135deg, #8B5CF6 0%, #22C55E 100%)',
-            }}
-          />
-          <div>
-            <p className="text-sm font-bold tracking-[-0.4px]">AgenticBlog</p>
-            <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-              LangGraph pipeline
-            </p>
-          </div>
+      <div
+        className="flex items-center gap-2.5 px-4"
+        style={{ height: 'var(--topbar-height)', borderBottom: '1px solid var(--bg-border)' }}
+      >
+        <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--brand-gradient)', flexShrink: 0 }} />
+        <div className="flex flex-col leading-none">
+          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.3px', color: 'var(--text-primary)' }}>
+            AgenticBlog
+          </span>
+          <span className="mono" style={{ fontSize: 9.5, color: 'var(--text-muted)', marginTop: 2 }}>
+            LangGraph pipeline
+          </span>
         </div>
       </div>
 
-      <nav className="space-y-1">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const active = activeView === item.key;
-          return (
-            <button
-              key={item.key}
-              onClick={() => onViewChange(item.key)}
-              className="group relative flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm transition duration-150 ease-out"
-              style={{
-                backgroundColor: active ? 'var(--bg-elevated)' : 'transparent',
-                color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-              }}
-            >
-              <span
-                className="absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-sm"
-                style={{ backgroundColor: active ? 'var(--accent-purple)' : 'transparent' }}
-              />
-              <Icon size={14} />
-              {item.label}
-            </button>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 py-4">
+        {GROUPS.map((group) => (
+          <div key={group.title} className="mb-5">
+            <p className="eyebrow px-2.5" style={{ marginBottom: 8 }}>{group.title}</p>
+            <div className="flex flex-col gap-0.5">
+              {group.items.map((item) => (
+                <NavItem
+                  key={item.key}
+                  item={item}
+                  active={activeView === item.key}
+                  isRunning={isRunning}
+                  runCount={runCount}
+                  onNavigate={onNavigate}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
       </nav>
 
-      <div className="mt-6">
-        <p className="label mb-2">Category</p>
-        <div className="space-y-1">
-          {Object.keys(CATEGORY_COLORS).map((cat) => {
-            const active = cat === category;
-            return (
-              <button
-                key={cat}
-                onClick={() => onCategoryChange(cat)}
-                className="flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-xs transition duration-150 ease-out"
-                style={{
-                  borderColor: active ? 'var(--accent-purple-border)' : 'var(--bg-border)',
-                  backgroundColor: active ? 'var(--accent-purple-dim)' : 'transparent',
-                  color: active ? 'var(--accent-purple)' : 'var(--text-secondary)',
-                }}
-              >
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: CATEGORY_COLORS[cat] }}
-                />
-                {cat}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <button
-        onClick={onRunToggle}
-        disabled={!isRunning && !category}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50"
-        style={{
-          backgroundColor: isRunning ? '#dc2626' : 'var(--accent-purple)',
-          color: '#fff',
-        }}
-      >
-        {isRunning ? <Square size={14} /> : <Play size={14} />}
-        {isRunning ? 'Stop' : 'Run'}
-      </button>
-
-      <div className="mt-auto border-t pt-2 text-[10px]" style={{ borderColor: 'var(--bg-border)' }}>
-        <p style={{ color: 'var(--text-muted)' }}>v1.0.0</p>
-        <a
-          href="https://github.com"
-          target="_blank"
-          rel="noreferrer"
-          className="mt-1 inline-flex items-center gap-1"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          <Github size={10} /> GitHub
-        </a>
+      <div className="px-4 py-3" style={{ borderTop: '1px solid var(--bg-border)' }}>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Mohamad El Akhal</p>
+        <p className="mono" style={{ fontSize: 9.5, color: 'var(--text-faint)', marginTop: 2 }}>makhal.fr · agentic content</p>
       </div>
     </aside>
   );

@@ -2,6 +2,12 @@
 
 > **Relevant files:** `agents/multi_critic.py`, `prompts/persona_generator.md`,
 > `prompts/debate_round.md`, `prompts/debate_synthesizer.md`, `state.py`
+>
+> **Live & persisted:** the panel streams to the web UI while it runs — the personas
+> first, then the transcript and verdict — via the `__ACPDATA__` stdout channel parsed
+> by `api.py`. The full transcript and per-iteration scores are also written to
+> `run_state.json`, so the Review › Provenance tab can replay any past debate. See the
+> DebatePanel in `docs/frontend.md`.
 
 ---
 
